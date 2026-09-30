@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Presenter</title>
+<style>
+  body{margin:0;padding:18px;font:14px system-ui,Segoe UI,sans-serif;background:#1c1c1e;color:#eee;display:flex;flex-direction:column;gap:12px;height:100vh;box-sizing:border-box}
+  #msg{white-space:pre-wrap}
+  input{padding:9px 10px;font-size:14px;border-radius:6px;border:1px solid #444;background:#111;color:#fff;outline:none}
+  input:focus{border-color:#4f8cff}
+  .row{margin-top:auto;display:flex;justify-content:flex-end;gap:8px}
+  button{padding:8px 16px;border-radius:6px;border:0;font-size:14px;cursor:pointer;background:#333;color:#eee}
+  button.ok{background:#4f8cff;color:#fff}
+</style></head>
+<body>
+  <div id="msg"></div>
+  <input id="inp" autofocus>
+  <div class="row"><button id="cancel">Cancel</button><button id="ok" class="ok">OK</button></div>
+<script>
+  const inp=document.getElementById('inp');
+  document.getElementById('msg').textContent=promptApi.message;
+  inp.value=promptApi.def; inp.select();
+  document.getElementById('ok').onclick=()=>promptApi.submit(inp.value);
+  document.getElementById('cancel').onclick=()=>promptApi.submit(null);
+  addEventListener('keydown',e=>{ if(e.key==='Enter') promptApi.submit(inp.value); if(e.key==='Escape') promptApi.submit(null); });
+</script></body></html>

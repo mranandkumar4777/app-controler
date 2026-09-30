@@ -1,0 +1,50 @@
+{
+  "name": "presenter",
+  "productName": "Presenter",
+  "version": "1.0.0",
+  "description": "Presenter - slides/lyrics presenter with phone remote",
+  "author": "Presenter",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.presenter.app",
+    "productName": "Presenter",
+    "directories": { "buildResources": "build", "output": "dist" },
+    "files": [
+      "main.js", "preload.js", "prompt-preload.js", "prompt.html",
+      "server.js", "presenter.html", "remote.html",
+      "manifest.json", "icon-192.png", "icon-512.png"
+    ],
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "Presenter-Setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "Presenter-Portable.${ext}"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.png",
+      "category": "public.app-category.productivity",
+      "artifactName": "Presenter-mac.${ext}"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "build/icon.png",
+      "category": "Office",
+      "artifactName": "Presenter-linux.${ext}"
+    }
+  }
+}

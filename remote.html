@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#16140F">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Remote">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<title>Presenter — Remote</title>
+<style>
+  :root{
+    --bg:#16140F; --panel:#1E1A13; --panel-2:#272117; --border:#3A3223;
+    --text:#F2EEE4; --text-dim:#A79E8A; --gold:#C9A227; --gold-soft:rgba(201,162,39,.16);
+    --red:#8A3324; --red-bright:#C1462E; --preview:#6F94A6; --preview-soft:rgba(111,148,166,.14);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;}
+  body{padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);}
+  button{font-family:inherit;}
+  .hidden{display:none !important;}
+  .wrap{max-width:520px;margin:0 auto;padding:16px 16px 32px;}
+
+  header{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 16px;}
+  header h1{font-size:17px;font-weight:600;margin:0;letter-spacing:.01em;}
+  .status{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-dim);}
+  .status-dot{width:8px;height:8px;border-radius:50%;background:var(--red-bright);flex:0 0 auto;}
+  .status-dot.online{background:#4C9A5A;}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:12px;}
+  .card-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
+  .badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--panel-2);color:var(--text-dim);letter-spacing:.04em;}
+  .badge.is-live{background:var(--red-bright);color:#fff;}
+  .slide-text{font-size:19px;line-height:1.45;min-height:1.45em;white-space:pre-wrap;}
+  .slide-subtitle{font-size:13px;color:var(--text-dim);margin-top:6px;}
+  .card.live-card{border-color:var(--red-bright);}
+  .card.preview-card{border-color:var(--gold);}
+
+  .transport{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+  .transport button{padding:18px 10px;font-size:16px;font-weight:600;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);}
+  .transport button:active{background:#332C1F;}
+  .edge-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .edge-row button{padding:11px 10px;font-size:13px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text-dim);}
+  .edge-row button:active{background:var(--panel-2);}
+
+  .action-row{display:grid;grid-template-columns:1.4fr 1fr;gap:10px;margin-bottom:20px;}
+  #goLiveBtn{padding:20px 10px;font-size:17px;font-weight:700;border-radius:8px;border:1px solid var(--red-bright);background:var(--red-bright);color:#fff;}
+  #goLiveBtn:active{background:#A5382A;}
+  #blankBtn{padding:20px 10px;font-size:15px;font-weight:600;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);}
+  #blankBtn:active{background:#332C1F;}
+
+  .search{width:100%;padding:11px 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:15px;margin-bottom:10px;}
+  .search::placeholder{color:var(--text-dim);}
+  .items-list{display:flex;flex-direction:column;gap:6px;max-height:38vh;overflow-y:auto;}
+  .item-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-radius:6px;border:1px solid var(--border);background:var(--panel);cursor:pointer;}
+  .item-row:active{background:var(--panel-2);}
+  .item-row.selected{border-color:var(--gold);background:var(--gold-soft);}
+  .item-title{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .item-tag{flex:0 0 auto;font-size:10px;color:var(--text-dim);border:1px solid var(--border);border-radius:20px;padding:2px 8px;}
+  .empty-hint{color:var(--text-dim);font-size:13px;padding:10px 2px;}
+
+  .gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .gate-box{max-width:340px;width:100%;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:26px 22px;text-align:center;}
+  .gate-box h1{font-size:18px;margin:0 0 6px;}
+  .gate-box p{font-size:13px;color:var(--text-dim);margin:0 0 18px;line-height:1.5;}
+  .gate-input{width:100%;padding:14px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:22px;text-align:center;letter-spacing:.12em;margin-bottom:12px;}
+  .gate-input::placeholder{color:var(--text-dim);letter-spacing:normal;font-size:14px;}
+  .gate-btn{width:100%;padding:14px;border-radius:8px;border:1px solid var(--gold);background:var(--gold);color:#16140F;font-size:15px;font-weight:700;}
+  .gate-btn:active{background:#B08F22;}
+  .gate-error{color:#E0796A;font-size:13px;margin-top:12px;min-height:1.2em;}
+  html,body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent;}
+  button,.item-row,.card{touch-action:manipulation;-webkit-user-select:none;user-select:none;}
+</style>
+</head>
+<body>
+
+<div class="gate" id="gateScreen">
+  <div class="gate-box">
+    <h1>Presenter Remote</h1>
+    <p>Enter the PIN shown in the server terminal window on the computer running Presenter.</p>
+    <input class="gate-input" id="pinInput" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="one-time-code" placeholder="PIN">
+    <button class="gate-btn" id="pinSubmitBtn">Connect</button>
+    <div class="gate-error" id="pinError"></div>
+  </div>
+</div>
+
+<div class="wrap hidden" id="remoteScreen">
+  <header>
+    <h1>Presenter Remote</h1>
+    <div class="status"><span class="status-dot" id="statusDot"></span><span id="statusText">Connecting…</span></div>
+  </header>
+
+  <div class="card live-card">
+    <div class="card-label"><span>On screen</span><span class="badge" id="liveBadge">OFF AIR</span></div>
+    <div class="slide-text" id="liveText"></div>
+    <div class="slide-subtitle" id="liveSubtitle"></div>
+  </div>
+
+  <div class="card preview-card">
+    <div class="card-label"><span>Staged next</span></div>
+    <div class="slide-text" id="previewText">(nothing staged)</div>
+    <div class="slide-subtitle" id="previewSubtitle"></div>
+  </div>
+
+  <div class="transport">
+    <button id="prevBtn">‹ Prev</button>
+    <button id="nextBtn">Next ›</button>
+  </div>
+  <div class="edge-row">
+    <button id="homeBtn">First line</button>
+    <button id="endBtn">Last line</button>
+  </div>
+  <div class="action-row">
+    <button id="goLiveBtn">Send Live</button>
+    <button id="blankBtn">Blank</button>
+  </div>
+
+  <input class="search" id="searchInput" type="text" placeholder="Search songs…">
+  <div class="items-list" id="itemsList"></div>
+  <div class="empty-hint" id="installHint">Tip: browser menu → “Add to Home Screen” to open this as a full-screen app.</div>
+</div>
+
+<script>
+(function(){
+  const origin = location.origin;
+  const PIN_KEY = 'presenterRemotePin';
+
+  const gateScreen = document.getElementById('gateScreen');
+  const remoteScreen = document.getElementById('remoteScreen');
+  const pinInput = document.getElementById('pinInput');
+  const pinSubmitBtn = document.getElementById('pinSubmitBtn');
+  const pinError = document.getElementById('pinError');
+
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const liveText = document.getElementById('liveText');
+  const liveSubtitle = document.getElementById('liveSubtitle');
+  const liveBadge = document.getElementById('liveBadge');
+  const previewText = document.getElementById('previewText');
+  const previewSubtitle = document.getElementById('previewSubtitle');
+  const itemsList = document.getElementById('itemsList');
+  const searchInput = document.getElementById('searchInput');
+  const blankBtn = document.getElementById('blankBtn');
+
+  let pin = null;
+  let currentItems = [];
+  let selectedItemId = null;
+
+  function send(type, extra){
+    const payload = Object.assign({ from:'remote', type: type, pin: pin }, extra || {});
+    fetch(origin + '/api/send', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    }).then(function(r){
+      if(r.status === 401){ pin = null; localStorage.removeItem(PIN_KEY); showGate('That PIN stopped working — enter the current one.'); }
+    }).catch(function(){ setStatus(false); });
+  }
+
+  function setStatus(connected){
+    statusDot.classList.toggle('online', connected);
+    statusText.textContent = connected ? 'Connected' : 'Reconnecting…';
+  }
+
+  function renderItems(){
+    const term = searchInput.value.trim().toLowerCase();
+    itemsList.innerHTML = '';
+    const filtered = term ? currentItems.filter(function(i){ return i.title.toLowerCase().indexOf(term) !== -1; }) : currentItems;
+    if(filtered.length === 0){
+      const p = document.createElement('div');
+      p.className = 'empty-hint';
+      p.textContent = currentItems.length === 0 ? 'Nothing in the library yet — add a song on the Control screen.' : 'No matches.';
+      itemsList.appendChild(p);
+      return;
+    }
+    filtered.forEach(function(item){
+      const row = document.createElement('div');
+      row.className = 'item-row' + (item.id === selectedItemId ? ' selected' : '');
+      const title = document.createElement('div');
+      title.className = 'item-title';
+      title.textContent = item.title;
+      const tag = document.createElement('div');
+      tag.className = 'item-tag';
+      tag.textContent = 'Song';
+      row.appendChild(title); row.appendChild(tag);
+      row.addEventListener('click', function(){
+        selectedItemId = item.id;
+        renderItems();
+        send('select', { itemId: item.id });
+      });
+      itemsList.appendChild(row);
+    });
+  }
+
+  searchInput.addEventListener('input', renderItems);
+
+  document.getElementById('prevBtn').addEventListener('click', function(){ send('prev'); });
+  document.getElementById('nextBtn').addEventListener('click', function(){ send('next'); });
+  document.getElementById('homeBtn').addEventListener('click', function(){ send('home'); });
+  document.getElementById('endBtn').addEventListener('click', function(){ send('end'); });
+  document.getElementById('goLiveBtn').addEventListener('click', function(){ send('golive'); });
+  blankBtn.addEventListener('click', function(){ send('blank'); });
+
+  function applyState(msg){
+    currentItems = msg.items || [];
+    selectedItemId = msg.selectedItemId || null;
+    renderItems();
+    const p = msg.preview || {};
+    previewText.textContent = p.text ? p.text : '(nothing staged)';
+    previewSubtitle.textContent = p.subtitle || '';
+    const l = msg.live || {};
+    const liveOn = !!(l.text && !l.blank);
+    liveText.textContent = liveOn ? l.text : '';
+    liveSubtitle.textContent = liveOn ? (l.subtitle || '') : '';
+    liveBadge.textContent = liveOn ? 'LIVE' : 'OFF AIR';
+    liveBadge.classList.toggle('is-live', liveOn);
+    blankBtn.textContent = liveOn ? 'Blank' : 'Show Live';
+  }
+
+  let es = null;
+  function connect(){
+    if(es) es.close();
+    es = new EventSource(origin + '/events?pin=' + encodeURIComponent(pin));
+    es.onopen = function(){ setStatus(true); };
+    es.onerror = function(){ setStatus(false); };
+    es.onmessage = function(ev){
+      setStatus(true);
+      let msg;
+      try { msg = JSON.parse(ev.data); } catch(e){ return; }
+      if(!msg || msg.from !== 'control' || msg.type !== 'state') return;
+      applyState(msg);
+    };
+  }
+
+  function startRemote(){
+    gateScreen.classList.add('hidden');
+    remoteScreen.classList.remove('hidden');
+    connect();
+    send('requestState');
+    setInterval(function(){ send('requestState'); }, 15000);
+  }
+
+  // Phones aggressively suspend background tabs, which can drop the SSE
+  // connection or delay updates. Catch up instantly when the tab is looked
+  // at again instead of waiting for the next 15s poll.
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden || !pin) return;
+    if(!es || es.readyState === EventSource.CLOSED){ connect(); }
+    send('requestState');
+  });
+
+  function showGate(message){
+    remoteScreen.classList.add('hidden');
+    gateScreen.classList.remove('hidden');
+    pinError.textContent = message || '';
+    pinInput.value = '';
+    pinInput.focus();
+  }
+
+  function tryPin(candidate){
+    if(!candidate){ pinError.textContent = 'Enter the PIN first.'; return; }
+    pinError.textContent = 'Checking…';
+    fetch(origin + '/api/verify-pin?pin=' + encodeURIComponent(candidate))
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if(data && data.ok){
+          pin = candidate;
+          localStorage.setItem(PIN_KEY, candidate);
+          startRemote();
+        } else {
+          pinError.textContent = 'Wrong PIN — check the server terminal and try again.';
+        }
+      })
+      .catch(function(){ pinError.textContent = "Couldn't reach the server. Check you're on the same Wi-Fi."; });
+  }
+
+  pinInput.addEventListener('input', function(){
+    const digitsOnly = pinInput.value.replace(/\D/g, '');
+    if(digitsOnly !== pinInput.value) pinInput.value = digitsOnly;
+  });
+  pinSubmitBtn.addEventListener('click', function(){ tryPin(pinInput.value.trim()); });
+  pinInput.addEventListener('keydown', function(e){ if(e.key === 'Enter') tryPin(pinInput.value.trim()); });
+
+  let urlPin = null;
+  try{
+    const qp = new URLSearchParams(location.search).get('pin');
+    if(qp && /^\d+$/.test(qp)){ urlPin = qp; history.replaceState(null, '', location.pathname); }
+  }catch(e){}
+  const saved = urlPin || localStorage.getItem(PIN_KEY);
+  if(saved){ tryPin(saved); } else { showGate(''); }
+})();
+</script>
+<script>
+(function(){
+  var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+  if(standalone){ var h = document.getElementById('installHint'); if(h) h.remove(); }
+  // Haptic tick on every button press (Android; iPhone ignores it).
+  document.addEventListener('click', function(e){
+    if(e.target.closest('button')){ try{ navigator.vibrate && navigator.vibrate(12); }catch(_){} }
+  });
+  // Swipe left/right on the Live/Staged cards = Next/Prev.
+  var sx = null, sy = null;
+  document.querySelectorAll('.card').forEach(function(c){
+    c.addEventListener('touchstart', function(e){ var t = e.touches[0]; sx = t.clientX; sy = t.clientY; }, {passive:true});
+    c.addEventListener('touchend', function(e){
+      if(sx === null) return;
+      var t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy; sx = null;
+      if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5){ document.getElementById(dx < 0 ? 'nextBtn' : 'prevBtn').click(); }
+    }, {passive:true});
+  });
+})();
+</script>
+</body>
+</html>

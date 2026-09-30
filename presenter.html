@@ -1,0 +1,1779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Presenter</title>
+<style>
+  :root{
+    --bg:#16140F; --panel:#1E1A13; --panel-2:#272117; --border:#3A3223;
+    --text:#F2EEE4; --text-dim:#A79E8A; --gold:#C9A227; --gold-soft:rgba(201,162,39,.16);
+    --red:#8A3324; --red-bright:#C1462E; --preview:#6F94A6; --preview-soft:rgba(111,148,166,.14);
+    --stage-font:Georgia,'Cambria','Times New Roman',serif; --stage-color:#F7F3E8;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;}
+  .hidden{display:none !important;}
+  button, input, select, textarea{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;}
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+
+  button{font-size:14px;font-weight:500;padding:9px 14px;border-radius:3px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer;transition:background .15s, border-color .15s;}
+  button:hover{background:#332C1F;border-color:#54492F;}
+  .btn-primary{background:var(--gold);color:#16140F;border-color:var(--gold);font-weight:600;}
+  .btn-primary:hover{background:#DBB33C;border-color:#DBB33C;}
+  .btn-danger{border-color:var(--red);color:#E8B4A6;}
+  .btn-danger:hover{background:var(--red);color:#fff;}
+  .btn-danger.is-active{background:var(--red-bright);border-color:var(--red-bright);color:#fff;}
+  #lockBtn.is-active{background:var(--red-bright);border-color:var(--red-bright);color:#fff;}
+  body.is-locked .library-actions,
+  body.is-locked .slides-panel,
+  body.is-locked .transport,
+  body.is-locked #goLiveBtn,
+  body.is-locked #blankBtn,
+  body.is-locked .item-actions{ pointer-events:none; opacity:.45; }
+  .hotkey-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px;}
+  .hotkey-row:last-of-type{border-bottom:none;}
+  .hotkey-value{min-width:110px;text-align:center;}
+  .hotkey-value.listening{background:var(--gold);border-color:var(--gold);color:#16140F;}
+
+  #controlView{display:flex;flex-direction:column;height:100vh;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--panel);}
+  .brand{font-family:Georgia,'Cambria','Times New Roman',serif;font-weight:600;font-size:20px;color:var(--gold);}
+  .topbar-actions{display:flex;gap:10px;}
+
+  .workspace{flex:1;display:flex;flex-direction:row;overflow:hidden;min-height:0;}
+  .dock-panel{min-width:0;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+  .dock-panel.dragging{opacity:.45;}
+  .dock-panel.drop-before::after,.dock-panel.drop-after::after{content:'';position:absolute;top:0;bottom:0;width:100%;pointer-events:none;z-index:5;background:rgba(201,162,39,.14);}
+  .dock-panel.drop-before::after{border-left:4px solid var(--gold);}
+  .dock-panel.drop-after::after{border-right:4px solid var(--gold);}
+  .panel-head{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:0 6px 0 10px;height:30px;background:#171310;border-bottom:1px solid var(--border);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);cursor:grab;user-select:none;}
+  .panel-head:hover{color:var(--gold);}
+  .panel-head:active{cursor:grabbing;}
+  .panel-head .grip{opacity:.6;letter-spacing:-2px;}
+  .panel-head .spacer{flex:1;}
+  .panel-head button{padding:2px 7px;font-size:12px;line-height:1.2;background:transparent;border:1px solid transparent;color:var(--text-dim);border-radius:3px;}
+  .panel-head button:hover{background:var(--panel-2);border-color:var(--border);color:var(--gold);}
+  .panel-body{flex:1;min-height:0;overflow-y:auto;}
+  .workspace-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 20px;border-bottom:1px solid var(--border);background:#151210;font-size:12px;color:var(--text-dim);}
+  .ws-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;}
+  .ws-tabs{display:flex;gap:4px;flex-wrap:wrap;}
+  .ws-tab{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 11px;border-radius:3px;background:transparent;border:1px solid transparent;color:var(--text-dim);cursor:pointer;}
+  .ws-tab:hover{color:var(--text);background:var(--panel-2);}
+  .ws-tab.active{color:var(--gold);border-color:var(--gold);background:var(--gold-soft);}
+  .ws-tab .ws-del{opacity:.6;font-size:13px;line-height:1;}
+  .ws-tab .ws-del:hover{opacity:1;color:#E08B72;}
+  .ws-btn{font-size:12px;padding:4px 10px;}
+  .ws-spacer{flex:1;}
+  .ws-check{display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:var(--text);}
+  @media (max-width:900px){
+    .workspace{flex-direction:column;overflow-y:auto;height:auto;}
+    .dock-panel{flex:none !important;display:flex !important;overflow:visible;}
+    .panel-body{overflow:visible;}
+    .panel-head,.workspace-bar,.panel-resize-handle{display:none !important;}
+  }
+  .panel-resize-handle{position:relative;flex:0 0 6px;cursor:col-resize;background:transparent;touch-action:none;}
+  .panel-resize-handle::after{content:'';position:absolute;top:0;bottom:0;left:2px;width:2px;background:var(--border);transition:background .15s;}
+  .panel-resize-handle:hover::after, .panel-resize-handle.is-dragging::after{background:var(--gold);width:2px;}
+  .panel-resize-handle.row{cursor:row-resize;height:6px;width:100%;flex:0 0 auto;}
+  .panel-resize-handle.row::after{top:2px;bottom:auto;left:0;right:0;width:auto;height:2px;}
+  body.is-resizing{cursor:col-resize;user-select:none;}
+  body.is-resizing-row{cursor:row-resize;user-select:none;}
+  body.is-resizing .panel-resize-handle::after{background:var(--gold);}
+  body.is-resizing-row .panel-resize-handle.row::after{background:var(--gold);}
+
+  .library{background:var(--panel);}
+  .library .panel-body{display:flex;flex-direction:column;overflow:hidden;}
+  .library-actions{display:flex;gap:8px;padding:14px;border-bottom:1px solid var(--border);}
+  .library-actions button{flex:1;font-size:13px;padding:8px 6px;}
+  .library-columns{display:flex;flex:1;overflow:hidden;}
+  .library-col{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
+  .library-col + .library-col{border-left:1px solid var(--border);}
+  .library-col-heading{flex:0 0 auto;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);padding:10px 10px 6px;}
+  .library-search{flex:0 0 auto;margin:0 10px 8px;padding:7px 9px;background:#0D0C09;border:1px solid var(--border);color:var(--text);border-radius:3px;font-size:13px;}
+  .library-search:focus{outline:none;border-color:rgba(201,162,39,.6);}
+  .library-list{list-style:none;margin:0;padding:0 8px 8px;overflow-y:auto;flex:1;}
+  .library-item{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:10px 10px;border-radius:3px;cursor:pointer;margin-bottom:4px;border:1px solid transparent;}
+  .library-item:hover{background:var(--panel-2);}
+  .library-item.selected{background:var(--gold-soft);border-color:var(--gold);}
+  .library-item .item-info{min-width:0;flex:1;overflow:hidden;}
+  .library-item .item-title{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+  .library-item .item-type{font-size:11px;color:var(--text-dim);margin-top:2px;}
+  .item-actions{display:flex;gap:2px;}
+  @media (hover:hover){
+    .item-actions{opacity:0;transition:opacity .15s;}
+    .library-item:hover .item-actions{opacity:1;}
+  }
+  .item-actions button{padding:2px 7px;font-size:13px;border:none;background:none;color:var(--text-dim);}
+  .item-actions button:hover{color:var(--text);}
+  .empty-hint{padding:14px;font-size:13px;color:var(--text-dim);line-height:1.5;}
+
+  .slides-panel .panel-body{padding:20px;}
+  .slides-panel h2{font-family:Georgia,'Cambria','Times New Roman',serif;font-weight:500;font-size:18px;color:var(--text-dim);margin:0 0 16px;}
+  .slides-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;}
+  .slide-card{background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:14px;cursor:pointer;font-size:14px;line-height:1.5;min-height:90px;white-space:pre-wrap;position:relative;touch-action:manipulation;}
+  .slide-card:hover{border-color:rgba(201,162,39,.5);}
+  .slide-card.is-live{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset;}
+  .slide-card.is-preview{outline:2px dashed var(--preview);outline-offset:-2px;}
+  .slide-card .slide-num{position:absolute;top:6px;right:8px;font-size:11px;color:var(--text-dim);}
+
+  .preview-panel{background:var(--panel);}
+  .preview-panel .panel-body{padding:16px;display:flex;flex-direction:column;}
+  .stage-box{display:flex;flex-direction:column;}
+  .stage-box-label{font-size:12px;color:var(--preview);margin-bottom:8px;}
+  .stage-box-live .stage-box-label{color:var(--gold);}
+  .stage-box-inner{background:#0D0C09;border:1px solid var(--border);border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:16px;min-height:120px;}
+  .stage-box-live .stage-box-inner{border-color:rgba(201,162,39,.35);}
+  #previewText, #liveText{font-family:var(--stage-font);font-weight:500;font-size:17px;color:var(--stage-color);white-space:pre-wrap;line-height:1.4;}
+  #previewSubtitle{font-size:12px;color:var(--preview);margin-top:8px;}
+  #liveSubtitle{font-size:12px;color:var(--gold);margin-top:8px;}
+  .btn-golive{margin:10px 0;font-weight:600;border-color:var(--gold);color:var(--gold);}
+  .btn-golive:hover{background:var(--gold);color:#16140F;}
+  .btn-golive:active, .btn-golive.is-pressed{background:var(--gold);color:#16140F;transform:scale(.97);}
+  .transport{display:flex;gap:8px;margin-top:14px;}
+  .transport button{flex:1;}
+  .hint-text{font-size:12px;color:var(--text-dim);margin-top:12px;text-align:center;line-height:1.5;}
+
+  .footer-hint{padding:10px 20px;border-top:1px solid var(--border);background:var(--panel);font-size:12px;color:var(--text-dim);text-align:center;}
+  .footer-hint strong{color:var(--text);}
+
+  .modal{position:fixed;inset:0;background:rgba(10,9,6,.7);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .modal-panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:24px;width:480px;max-width:100%;max-height:85vh;overflow-y:auto;}
+  .modal-panel h3{font-family:Georgia,'Cambria','Times New Roman',serif;margin-top:0;font-weight:500;}
+  .field{margin-bottom:14px;display:flex;flex-direction:column;gap:6px;}
+  .field label{font-size:13px;color:var(--text-dim);}
+  .field input, .field select, .field textarea{background:#0D0C09;border:1px solid var(--border);color:var(--text);padding:9px 10px;border-radius:3px;font-size:14px;}
+  .field textarea{min-height:160px;resize:vertical;}
+  .field-hint{font-size:12px;color:var(--text-dim);}
+  .title-row{display:flex;gap:8px;}
+  .title-row input{flex:1;min-width:0;}
+  .title-row button{flex:0 0 auto;white-space:nowrap;font-size:13px;background:var(--panel-2);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:3px;cursor:pointer;}
+  .title-row button:hover{border-color:rgba(201,162,39,.5);color:var(--gold);}
+  .radio-row{display:flex;gap:16px;}
+  .radio-row label{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--text);}
+  .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+  .phone-qr{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;}
+  .phone-qr canvas{background:#fff;border-radius:6px;padding:0;width:200px;height:200px;image-rendering:pixelated;flex:0 0 auto;}
+  .phone-info{flex:1;min-width:200px;font-size:14px;line-height:1.5;}
+  .phone-link{display:block;margin:6px 0;padding:8px 10px;background:#0D0C09;border:1px solid var(--border);border-radius:3px;color:var(--gold);word-break:break-all;user-select:all;font-size:14px;}
+  .phone-pin{font-size:22px;letter-spacing:.2em;color:var(--gold);font-weight:600;}
+  .phone-steps{margin:10px 0 0 18px;padding:0;font-size:13px;color:var(--text-dim);line-height:1.5;}
+  .phone-steps li{margin-bottom:3px;}
+  .phone-warn{padding:10px 12px;border:1px solid var(--red);border-radius:4px;background:rgba(160,60,40,.12);color:#E8B4A6;font-size:13px;line-height:1.5;}
+
+  #displayView{position:fixed;inset:0;background:#0A0906;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:6vw;}
+  #displayView.is-preview{box-shadow:inset 0 0 0 6px var(--preview-soft);transition:box-shadow .15s;}
+  #displayView.is-preview.is-sent{box-shadow:inset 0 0 0 6px var(--gold);}
+  #displayView.bg-transparent{ background:transparent !important; }
+  .preview-badge{position:absolute;top:22px;left:22px;font-size:14px;color:var(--preview);border:1px solid var(--preview);padding:5px 12px;border-radius:3px;background:rgba(111,148,166,.08);}
+  .stage-text{font-family:var(--stage-font);font-weight:500;color:var(--stage-color);white-space:pre-wrap;line-height:1.35;max-width:92%;text-shadow:0 2px 20px rgba(0,0,0,.55),0 1px 3px rgba(0,0,0,.65);}
+  .stage-subtitle{margin-top:2.5vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:1.4vw;color:var(--gold);letter-spacing:.04em;text-shadow:0 2px 10px rgba(0,0,0,.6);}
+  .stage-text.blank{opacity:0;}
+  .stage-text.size-xl{font-size:6.5vw;}
+  .stage-text.size-l{font-size:5vw;}
+  .stage-text.size-m{font-size:3.6vw;}
+  .stage-text.size-s{font-size:2.6vw;}
+  .font-swatch-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;}
+  .font-swatch{padding:10px 14px;border-radius:6px;border:2px solid var(--border);cursor:pointer;background:var(--panel-2);color:var(--text);font-size:15px;transition:border-color .15s,transform .1s;}
+  .font-swatch:hover{border-color:rgba(201,162,39,.6);transform:translateY(-1px);}
+  .font-swatch.selected{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold);color:var(--gold);}
+  .font-swatch.font-swatch-empty{opacity:.55;}
+  .font-swatch.font-swatch-empty:hover{border-color:rgba(201,162,39,.6);}
+  .color-row{display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap;}
+  .color-row input[type="color"]{width:52px;height:36px;padding:2px;border-radius:4px;border:1px solid var(--border);background:var(--panel-2);cursor:pointer;}
+  .color-row input[type="file"]{color:var(--text);font-size:13px;max-width:220px;}
+
+  /* Font & color controls in the sidebar */
+  .stage-style-settings{flex:0 0 auto;border-top:1px solid var(--border);}
+  .stage-style-settings summary{list-style:none;cursor:pointer;padding:10px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gold);display:flex;align-items:center;justify-content:space-between;}
+  .stage-style-settings summary::-webkit-details-marker{display:none;}
+  .stage-style-settings summary::after{content:'▸';font-size:10px;color:var(--text-dim);transition:transform .15s;}
+  .stage-style-settings[open] summary::after{transform:rotate(90deg);}
+  .stage-style-settings summary:hover{background:var(--panel-2);}
+  .stage-style-body{padding:2px 12px 12px;max-height:46vh;overflow-y:auto;}
+  .field-compact{margin-bottom:14px;}
+  .field-compact:last-child{margin-bottom:0;}
+  .field-compact label{display:block;font-size:12px;font-weight:600;color:var(--text-dim);margin-bottom:2px;}
+  .field-compact .field-hint{font-size:11px;line-height:1.4;margin-top:6px;}
+  .font-swatch-row-compact{gap:6px;}
+  .font-swatch-row-compact .font-swatch{padding:6px 9px;font-size:12px;}
+  .stage-style-body .color-row input[type="file"]{max-width:150px;font-size:11px;}
+</style>
+</head>
+<body>
+
+<div id="controlView">
+  <header class="topbar">
+    <div class="brand">Presenter</div>
+    <div class="topbar-actions">
+      <button id="phoneBtn" title="Control this from your phone — link and QR code">📱 Phone</button>
+      <button id="settingsBtn" title="Hotkeys and display settings">⚙ Settings</button>
+      <button id="lockBtn" title="Lock the controls so nothing changes by accident"><span id="lockBtnIcon" style="margin-right:6px;">🔓</span><span id="lockBtnLabel">Unlocked</span></button>
+      <button id="blankBtn" class="btn-danger" title="Toggle live output (B)"><span id="blankBtnIcon" style="margin-right:6px;">●</span><span id="blankBtnLabel">Live</span></button>
+      <button id="openPreviewBtn">Preview window</button>
+      <button id="openDisplayBtn" class="btn-primary">Live window</button>
+    </div>
+  </header>
+  <div class="workspace-bar" id="workspaceBar">
+    <span class="ws-label">Workspace</span>
+    <div class="ws-tabs" id="wsTabs"></div>
+    <button type="button" id="wsSaveBtn" class="ws-btn" title="Save the current panel layout as a new workspace">＋ Save as…</button>
+    <button type="button" id="wsResetBtn" class="ws-btn" title="Reset to the saved layout of the selected workspace">↺ Reset</button>
+    <div class="ws-spacer"></div>
+    <span class="ws-label">Panels</span>
+    <label class="ws-check"><input type="checkbox" data-panel="lib" checked> Library</label>
+    <label class="ws-check"><input type="checkbox" data-panel="slides" checked> Slides</label>
+    <label class="ws-check"><input type="checkbox" data-panel="prev" checked> Preview &amp; Live</label>
+  </div>
+  <div class="workspace">
+    <aside class="library">
+      <div class="library-actions">
+        <button id="newSongBtn">+ Add item</button>
+      </div>
+      <div class="library-columns">
+        <div class="library-col">
+          <div class="library-col-heading">Songs</div>
+          <input type="text" id="songSearchInput" class="library-search" placeholder="Search songs…">
+          <ul id="songsList" class="library-list"></ul>
+          <details class="stage-style-settings">
+            <summary>Font &amp; color</summary>
+            <div class="stage-style-body">
+      <div class="field-compact">
+        <label>Stage text font</label>
+        <div class="font-swatch-row font-swatch-row-compact" id="fontSwatchRow">
+          <button type="button" class="font-swatch" data-font="serif-classic" style="font-family:Georgia,'Cambria','Times New Roman',serif;">Classic Serif</button>
+          <button type="button" class="font-swatch" data-font="serif-elegant" style="font-family:'Palatino Linotype',Palatino,'Book Antiqua',Georgia,serif;">Elegant Serif</button>
+          <button type="button" class="font-swatch" data-font="sans-clean" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">Clean Sans</button>
+          <button type="button" class="font-swatch" data-font="sans-bold" style="font-family:'Arial Black','Helvetica Neue',Arial,sans-serif;">Bold Sans</button>
+          <button type="button" class="font-swatch" data-font="rounded" style="font-family:'Trebuchet MS',Verdana,sans-serif;">Rounded</button>
+          <button type="button" class="font-swatch" data-font="mono" style="font-family:'Courier New',Courier,monospace;">Monospace</button>
+          <button type="button" class="font-swatch" data-font="slab" style="font-family:'Rockwell','Courier New',Georgia,serif;">Slab Serif</button>
+          <button type="button" class="font-swatch" data-font="script-elegant" style="font-family:'Brush Script MT','Segoe Script',cursive;">Elegant Script</button>
+          <button type="button" class="font-swatch" data-font="display-impact" style="font-family:Impact,'Arial Black',sans-serif;">Impact</button>
+          <button type="button" class="font-swatch" data-font="condensed" style="font-family:'Arial Narrow',Arial,sans-serif;">Condensed</button>
+          <button type="button" class="font-swatch font-swatch-empty" data-font="custom" id="customFontSwatch">Custom Font</button>
+        </div>
+        <div class="field-hint">Applies on stage immediately. Uses fonts already installed on this computer, so it works with no internet connection.</div>
+        <div class="color-row" style="margin-top:8px;">
+          <input type="file" id="customFontUpload" accept=".ttf,.otf,.woff,.woff2">
+          <button type="button" id="customFontRemoveBtn" class="hidden">Remove</button>
+        </div>
+        <div class="field-hint" id="customFontHint">Upload a .ttf, .otf, .woff or .woff2 file (under 2MB) to use your own font. It's saved on this computer only and selected automatically as "Custom Font" above.</div>
+      </div>
+      <div class="field-compact">
+        <label>Stage text color</label>
+        <div class="color-row">
+          <input type="color" id="stageColorPicker" value="#f7f3e8">
+          <button type="button" id="stageColorResetBtn">Reset</button>
+        </div>
+        <div class="field-hint">Changes the color of the text on stage (the song name only shows in Preview).</div>
+      </div>
+            </div>
+          </details>
+          <details class="stage-style-settings">
+            <summary>Slide transition</summary>
+            <div class="stage-style-body">
+              <div class="field-compact">
+                <label for="fxSelect">Effect when a slide goes Live</label>
+                <select id="fxSelect" style="width:100%;padding:8px;border-radius:3px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:14px;"></select>
+              </div>
+              <div class="field-compact">
+                <label for="fxDuration">Speed: <span id="fxDurationLabel"></span></label>
+                <input type="range" id="fxDuration" min="150" max="2000" step="50" style="width:100%;">
+                <div class="field-hint">Shorter = snappier, longer = slower and smoother.</div>
+              </div>
+              <div class="color-row">
+                <button type="button" id="fxTestBtn">▶ Test effect</button>
+              </div>
+              <div id="fxDemo" style="margin-top:8px;height:96px;display:flex;align-items:center;justify-content:center;text-align:center;background:#0A0906;border:1px solid var(--border);border-radius:3px;">
+                <div id="fxDemoText" class="stage-text" style="font-size:17px;">Amazing grace,
+how sweet the sound</div>
+              </div>
+              <div class="field-hint" style="margin-top:8px;">The effect plays on the Live screen each time you send a slide from Preview to Live (or blank / unblank it).</div>
+            </div>
+          </details>
+        </div>
+      </div>
+      <div class="empty-hint" style="padding:8px 12px;">Ctrl+Z (⌘Z on Mac) undoes the last delete.</div>
+    </aside>
+    <main class="slides-panel">
+      <h2 id="selectedTitle">Select something from your library</h2>
+      <div id="slidesGrid" class="slides-grid"></div>
+    </main>
+    <aside class="preview-panel">
+      <div class="stage-box">
+        <div class="stage-box-label">Preview</div>
+        <div class="stage-box-inner">
+          <div id="previewText"></div>
+          <div id="previewSubtitle"></div>
+        </div>
+      </div>
+      <button id="goLiveBtn" class="btn-golive">Go live ▸</button>
+      <div class="stage-box stage-box-live">
+        <div class="stage-box-label">Live</div>
+        <div class="stage-box-inner">
+          <div id="liveText"></div>
+          <div id="liveSubtitle"></div>
+        </div>
+      </div>
+      <div class="transport">
+        <button id="prevBtn">← Prev</button>
+        <button id="nextBtn">Next →</button>
+      </div>
+      <div class="transport">
+        <button id="lineUpBtn">▲ Up</button>
+        <button id="lineDownBtn">▼ Down</button>
+      </div>
+      <p class="hint-text">Arrow keys move the preview. Enter sends it live. B blanks live. Type a slide number then Enter to jump to it.</p>
+      <div id="slideJumpIndicator" class="hidden" style="margin-top:8px;text-align:center;font-size:13px;color:var(--gold);border:1px solid var(--gold);border-radius:3px;padding:6px;"></div>
+    </aside>
+  </div>
+  <footer class="footer-hint">In OBS on this computer: <strong>+ Add Source → Window Capture</strong> → choose "STAGE DISPLAY — Presenter". Sending to OBS on another computer? See <strong>Settings → Send to OBS over NDI</strong>. Want to run this from your phone? See <strong>Settings → Control from your phone</strong>. The Preview window is just for you — put it on a second monitor to see what's coming up next.</footer>
+
+  <div id="phoneModal" class="modal hidden">
+    <div class="modal-panel">
+      <h3>Control from your phone</h3>
+      <div id="phoneBody"></div>
+      <div class="modal-actions">
+        <button id="phoneCloseBtn" class="btn-primary">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-panel">
+      <h3>Settings</h3>
+      <div class="field">
+        <label>Display background</label>
+        <div class="radio-row">
+          <label><input type="radio" name="bgMode" value="dark" checked> Dark</label>
+          <label><input type="radio" name="bgMode" value="transparent"> Transparent</label>
+        </div>
+        <div class="field-hint">Transparent only shows through if OBS captures the Live window as a <strong>Browser Source</strong> pointed at the file itself — a Window Capture always shows a solid background, since it's just capturing pixels off your screen.</div>
+      </div>
+      <div class="field">
+        <label>Send to OBS over NDI</label>
+        <div class="field-hint">
+          A browser tab can't broadcast real NDI on its own — no web page can, since NDI needs raw network access browsers don't allow. The free <strong>NDI Tools</strong> app bridges that gap:
+          <ol style="margin:8px 0 0 18px;padding:0;">
+            <li>Download &amp; install <strong>NDI Tools</strong> from ndi.video (free).</li>
+            <li>Open the <strong>Live window</strong> here (top left) and leave it running on its own.</li>
+            <li>Run <strong>NDI Screen Capture</strong> (part of NDI Tools) and point it at just the "STAGE DISPLAY — Presenter" window.</li>
+            <li>In OBS, install the free <strong>obs-ndi</strong> plugin if you don't have it, then <strong>+ Add Source → NDI™ Source</strong> and pick the feed NDI Screen Capture is broadcasting.</li>
+          </ol>
+          This sends the feed over your network, so — unlike Window Capture — it also works if OBS is running on a different computer than this one.
+        </div>
+      </div>
+      <div class="field">
+        <label>Control from your phone</label>
+        <div class="field-hint">Click the <strong>📱 Phone</strong> button at the top of the window — it shows a QR code to scan and the link to type. It needs the small server running (<strong>Presenter.bat</strong> / <strong>Presenter.app</strong> / <strong>presenter.sh</strong>, or <strong>node server.js</strong>) and this window opened from <strong>http://localhost:8787/</strong>.</div>
+      </div>
+      <div class="field">
+        <label>Hotkeys</label>
+        <div class="hotkey-row"><span>Next slide</span><button class="hotkey-value" data-action="next">ArrowRight</button></div>
+        <div class="hotkey-row"><span>Previous slide</span><button class="hotkey-value" data-action="prev">ArrowLeft</button></div>
+        <div class="hotkey-row"><span>Line up</span><button class="hotkey-value" data-action="lineUp">ArrowUp</button></div>
+        <div class="hotkey-row"><span>Line down</span><button class="hotkey-value" data-action="lineDown">ArrowDown</button></div>
+        <div class="hotkey-row"><span>First line</span><button class="hotkey-value" data-action="home">Home</button></div>
+        <div class="hotkey-row"><span>Last line</span><button class="hotkey-value" data-action="end">End</button></div>
+        <div class="hotkey-row"><span>Send live</span><button class="hotkey-value" data-action="golive">Enter</button></div>
+        <div class="hotkey-row"><span>Toggle blank</span><button class="hotkey-value" data-action="blank">B</button></div>
+        <div class="field-hint">Click a key name, then press the key you want to use instead.</div>
+      </div>
+      <div class="modal-actions">
+        <button id="settingsResetBtn">Reset hotkeys</button>
+        <button id="settingsCloseBtn" class="btn-primary">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="songModal" class="modal hidden">
+    <div class="modal-panel">
+      <h3 id="songModalHeading">New item</h3>
+      <div class="field">
+        <label for="songTitleInput">Title</label>
+        <div class="title-row">
+          <input id="songTitleInput" type="text" placeholder="e.g. How Great Thou Art">
+          <button type="button" id="searchLyricsBtn" title="Search the web for these lyrics, in a new tab">🔍 Search lyrics</button>
+        </div>
+        <div class="field-hint">Opens a search in a new browser tab so you can find the lyrics and copy them yourself — lyrics are usually copyrighted, so this app can't pull them in automatically. Paste what you find into the box below.</div>
+      </div>
+      <div class="field">
+        <label for="songLyricsInput">Text</label>
+        <textarea id="songLyricsInput" placeholder="Paste the lyrics here."></textarea>
+        <div class="field-hint">Leave a blank line (or a line with just ---) between sections to split them into separate slides. Works fully offline.</div>
+      </div>
+      <div class="modal-actions">
+        <button id="songCancelBtn">Cancel</button>
+        <button id="songSaveBtn" class="btn-primary">Save item</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="displayView" class="hidden">
+  <div id="previewBadge" class="preview-badge hidden">Preview</div>
+  <div id="stageText" class="stage-text"></div>
+  <div id="stageSubtitle" class="stage-subtitle"></div>
+</div>
+
+<script>
+(function(){
+  const ITEMS_KEY = 'presenter_items_v1';
+  const LIVE_KEY = 'presenter_live_v1';
+  const PREVIEW_KEY = 'presenter_preview_v1';
+  const BGMODE_KEY = 'presenter_bgmode_v1';
+  const FONT_KEY = 'presenter_stage_font_v1';
+  const COLOR_KEY = 'presenter_stage_color_v1';
+  const CUSTOM_FONT_KEY = 'presenter_custom_font_v1';
+  const CUSTOM_FONT_FAMILY = 'PresenterCustomFont';
+  const FONT_STACKS = {
+    'serif-classic': "Georgia,'Cambria','Times New Roman',serif",
+    'serif-elegant': "'Palatino Linotype',Palatino,'Book Antiqua',Georgia,serif",
+    'sans-clean': "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif",
+    'sans-bold': "'Arial Black','Helvetica Neue',Arial,sans-serif",
+    'rounded': "'Trebuchet MS',Verdana,sans-serif",
+    'mono': "'Courier New',Courier,monospace",
+    'slab': "'Rockwell','Courier New',Georgia,serif",
+    'script-elegant': "'Brush Script MT','Segoe Script',cursive",
+    'display-impact': "Impact,'Arial Black',sans-serif",
+    'condensed': "'Arial Narrow',Arial,sans-serif"
+  };
+  const DEFAULT_FONT = 'serif-classic';
+  const DEFAULT_COLOR = '#f7f3e8';
+  let customFontLoaded = false;
+  function getCustomFontData(){
+    try{ return JSON.parse(localStorage.getItem(CUSTOM_FONT_KEY)); }catch(e){ return null; }
+  }
+  function ensureCustomFontLoaded(){
+    if(customFontLoaded) return Promise.resolve(true);
+    const data = getCustomFontData();
+    if(!data || !window.FontFace) return Promise.resolve(false);
+    try{
+      const face = new FontFace(CUSTOM_FONT_FAMILY, `url(${data.dataUrl})`);
+      return face.load().then(loaded=>{
+        document.fonts.add(loaded);
+        customFontLoaded = true;
+        return true;
+      }).catch(()=>false);
+    }catch(e){ return Promise.resolve(false); }
+  }
+  function applyStageStyle(){
+    const fontKey = localStorage.getItem(FONT_KEY) || DEFAULT_FONT;
+    const color = localStorage.getItem(COLOR_KEY) || DEFAULT_COLOR;
+    document.documentElement.style.setProperty('--stage-color', color);
+    if(fontKey === 'custom'){
+      document.documentElement.style.setProperty('--stage-font', FONT_STACKS[DEFAULT_FONT]);
+      ensureCustomFontLoaded().then(ok=>{
+        if(ok) document.documentElement.style.setProperty('--stage-font', `"${CUSTOM_FONT_FAMILY}",${FONT_STACKS[DEFAULT_FONT]}`);
+      });
+    } else {
+      document.documentElement.style.setProperty('--stage-font', FONT_STACKS[fontKey] || FONT_STACKS[DEFAULT_FONT]);
+    }
+  }
+  applyStageStyle();
+
+  // ---- Slide transition effects (played on the Live screen when a slide changes) ----
+  const TRANS_KEY = 'presenter_transition_v1';
+  const TRANS_DEFAULT = { effect:'fade', duration:500 };
+  const FX = {
+    fade:      { label:'Fade',
+                 out:[{opacity:1},{opacity:0}],
+                 'in':[{opacity:0},{opacity:1}] },
+    slideup:   { label:'Slide up',
+                 out:[{opacity:1,transform:'translateY(0)'},{opacity:0,transform:'translateY(-9vh)'}],
+                 'in':[{opacity:0,transform:'translateY(9vh)'},{opacity:1,transform:'translateY(0)'}] },
+    slideleft: { label:'Slide left',
+                 out:[{opacity:1,transform:'translateX(0)'},{opacity:0,transform:'translateX(-12vw)'}],
+                 'in':[{opacity:0,transform:'translateX(12vw)'},{opacity:1,transform:'translateX(0)'}] },
+    zoom:      { label:'Zoom',
+                 out:[{opacity:1,transform:'scale(1)'},{opacity:0,transform:'scale(1.15)'}],
+                 'in':[{opacity:0,transform:'scale(0.85)'},{opacity:1,transform:'scale(1)'}] },
+    blur:      { label:'Blur',
+                 out:[{opacity:1,filter:'blur(0)'},{opacity:0,filter:'blur(26px)'}],
+                 'in':[{opacity:0,filter:'blur(26px)'},{opacity:1,filter:'blur(0)'}] },
+    wipe:      { label:'Wipe',
+                 out:[{opacity:1},{opacity:0}],
+                 'in':[{clipPath:'inset(0 100% 0 0)',opacity:1},{clipPath:'inset(0 0 0 0)',opacity:1}] }
+  };
+  const FX_KEYS = Object.keys(FX);
+  function loadTransition(){
+    try{
+      const t = JSON.parse(localStorage.getItem(TRANS_KEY));
+      if(t && typeof t === 'object'){
+        const d = Number(t.duration);
+        const okEffect = (t.effect === 'none' || t.effect === 'random' || FX[t.effect]);
+        return { effect: okEffect ? t.effect : TRANS_DEFAULT.effect, duration: (d >= 100 && d <= 3000) ? d : TRANS_DEFAULT.duration };
+      }
+    }catch(e){}
+    return { effect:TRANS_DEFAULT.effect, duration:TRANS_DEFAULT.duration };
+  }
+  function saveTransition(t){ try{ localStorage.setItem(TRANS_KEY, JSON.stringify(t)); }catch(e){} }
+
+  let fxRunning = [];
+  function cancelFx(){
+    fxRunning.forEach(r=>{
+      r.anims.forEach(a=>{ try{ a.cancel(); }catch(e){} });
+      if(r.clone && r.clone.parentNode) r.clone.parentNode.removeChild(r.clone);
+    });
+    fxRunning = [];
+  }
+  // Changes el's content via apply(), animating the old text out (a copy) and the new text in.
+  function swapWithEffect(el, host, apply, hadText, hasText, cfg){
+    cancelFx();
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let effect = cfg.effect;
+    if(effect === 'none' || reduce || document.hidden || !el.animate || (!hadText && !hasText)){ apply(); return; }
+    if(effect === 'random') effect = FX_KEYS[Math.floor(Math.random() * FX_KEYS.length)];
+    const fx = FX[effect] || FX.fade;
+    const opts = { duration: cfg.duration, easing:'ease-in-out', fill:'both' };
+    let clone = null;
+    if(hadText){
+      const r = el.getBoundingClientRect();
+      clone = el.cloneNode(true);
+      clone.removeAttribute('id');
+      Object.assign(clone.style, { position:'fixed', margin:'0', pointerEvents:'none', maxWidth:'none',
+        left:r.left+'px', top:r.top+'px', width:r.width+'px', height:r.height+'px' });
+      host.appendChild(clone);
+    }
+    apply();
+    const anims = [];
+    if(clone) anims.push(clone.animate(fx.out, opts));
+    if(hasText) anims.push(el.animate(fx['in'], opts));
+    const entry = { anims, clone };
+    fxRunning.push(entry);
+    Promise.all(anims.map(a=>a.finished)).then(()=>{
+      anims.forEach(a=>{ try{ a.cancel(); }catch(e){} });
+      if(clone && clone.parentNode) clone.parentNode.removeChild(clone);
+      fxRunning = fxRunning.filter(x=>x !== entry);
+    }).catch(()=>{});
+  }
+
+  const HOTKEYS_KEY = 'presenter_hotkeys_v1';
+  const DEFAULT_HOTKEYS = { next:'ArrowRight', prev:'ArrowLeft', lineUp:'ArrowUp', lineDown:'ArrowDown', home:'Home', end:'End', golive:'Enter', blank:'b' };
+  function loadHotkeys(){
+    try{ return Object.assign({}, DEFAULT_HOTKEYS, JSON.parse(localStorage.getItem(HOTKEYS_KEY)) || {}); }
+    catch(e){ return Object.assign({}, DEFAULT_HOTKEYS); }
+  }
+  function saveHotkeys(hk){ localStorage.setItem(HOTKEYS_KEY, JSON.stringify(hk)); }
+  const params = new URLSearchParams(location.search);
+  const mode = params.get('mode') === 'display' ? 'display' : (params.get('mode') === 'preview' ? 'preview' : 'control');
+
+  const controlView = document.getElementById('controlView');
+  const displayView = document.getElementById('displayView');
+
+  function loadItems(){ try{ return JSON.parse(localStorage.getItem(ITEMS_KEY)) || []; }catch(e){ return []; } }
+  function saveItems(items){ localStorage.setItem(ITEMS_KEY, JSON.stringify(items)); }
+  function readState(key){ try{ return JSON.parse(localStorage.getItem(key)) || {blank:true,text:'',subtitle:''}; }catch(e){ return {blank:true,text:'',subtitle:''}; } }
+  function getLive(){ return readState(LIVE_KEY); }
+  function getPreview(){ return readState(PREVIEW_KEY); }
+  function uid(){ return 'id-' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
+
+  const SEED_ITEM = {
+    id:'seed-amazing-grace', type:'song', title:'Amazing Grace (example)',
+    slides:[
+      {text:"Amazing grace, how sweet the sound,\nthat saved a wretch like me.\nI once was lost, but now am found,\nwas blind but now I see.", subtitle:'Amazing Grace'},
+      {text:"'Twas grace that taught my heart to fear,\nand grace my fears relieved.\nHow precious did that grace appear\nthe hour I first believed.", subtitle:'Amazing Grace'},
+      {text:"Through many dangers, toils and snares,\nI have already come.\n'Tis grace hath brought me safe thus far,\nand grace will lead me home.", subtitle:'Amazing Grace'}
+    ]
+  };
+
+  if(mode === 'display' || mode === 'preview'){
+    initDisplay();
+  } else {
+    initControl();
+  }
+
+    // Minimal QR Code generator (byte mode, error correction M, versions 1-10).
+    // Follows the QR Code Model 2 spec; used only to show the phone-remote link.
+    function makeQR(text){
+      const utf8 = Array.from(new TextEncoder().encode(text));
+      const ECC_PER_BLOCK = [-1,10,16,26,18,24,16,18,22,22,26];
+      const NUM_BLOCKS    = [-1, 1, 1, 2, 2, 4, 4, 4, 5, 5, 5];
+      function rawModules(v){
+        let r = (16*v + 128)*v + 64;
+        if(v >= 2){ const n = Math.floor(v/7) + 2; r -= (25*n - 10)*n - 55; if(v >= 7) r -= 36; }
+        return r;
+      }
+      let ver = 0, dataCap = 0;
+      for(let v=1; v<=10; v++){
+        const cap = Math.floor(rawModules(v)/8) - ECC_PER_BLOCK[v]*NUM_BLOCKS[v];
+        const need = 1 + (v >= 10 ? 2 : 1) + utf8.length; // mode+count+data (in bytes, rounded up)
+        if(need <= cap){ ver = v; dataCap = cap; break; }
+      }
+      if(!ver) throw new Error('QR data too long');
+      // --- data bits
+      const bits = [];
+      const put = (val, len)=>{ for(let i=len-1; i>=0; i--) bits.push((val >>> i) & 1); };
+      put(4, 4); put(utf8.length, ver >= 10 ? 16 : 8);
+      utf8.forEach(b=>put(b, 8));
+      put(0, Math.min(4, dataCap*8 - bits.length));
+      put(0, (8 - bits.length % 8) % 8);
+      for(let pad = 0xEC; bits.length < dataCap*8; pad ^= 0xEC ^ 0x11) put(pad, 8);
+      const data = [];
+      for(let i=0; i<bits.length; i+=8){ let b = 0; for(let j=0; j<8; j++) b = (b<<1) | bits[i+j]; data.push(b); }
+      // --- Reed-Solomon
+      function mul(x, y){ let z = 0; for(let i=7; i>=0; i--){ z = (z << 1) ^ ((z >>> 7) * 0x11D); z ^= ((y >>> i) & 1) * x; } return z; }
+      function divisor(deg){
+        const r = new Array(deg - 1).fill(0); r.push(1);
+        let root = 1;
+        for(let i=0; i<deg; i++){
+          for(let j=0; j<r.length; j++){ r[j] = mul(r[j], root); if(j+1 < r.length) r[j] ^= r[j+1]; }
+          root = mul(root, 2);
+        }
+        return r;
+      }
+      function remainder(dat, div){
+        const r = div.map(()=>0);
+        dat.forEach(b=>{ const f = b ^ r.shift(); r.push(0); div.forEach((c,i)=>{ r[i] ^= mul(c, f); }); });
+        return r;
+      }
+      const nb = NUM_BLOCKS[ver], eccLen = ECC_PER_BLOCK[ver];
+      const rawCw = Math.floor(rawModules(ver)/8);
+      const nShort = nb - rawCw % nb, shortLen = Math.floor(rawCw / nb);
+      const div = divisor(eccLen);
+      const blocks = [];
+      for(let i=0, k=0; i<nb; i++){
+        const dat = data.slice(k, k + shortLen - eccLen + (i < nShort ? 0 : 1)); k += dat.length;
+        const ecc = remainder(dat, div);
+        if(i < nShort) dat.push(0);
+        blocks.push(dat.concat(ecc));
+      }
+      const codewords = [];
+      for(let i=0; i<blocks[0].length; i++)
+        blocks.forEach((blk, j)=>{ if(i != shortLen - eccLen || j >= nShort) codewords.push(blk[i]); });
+      // --- matrix
+      const size = ver*4 + 17;
+      const mod = Array.from({length:size}, ()=>new Array(size).fill(false));
+      const fn  = Array.from({length:size}, ()=>new Array(size).fill(false));
+      const setFn = (x, y, dark)=>{ mod[y][x] = dark; fn[y][x] = true; };
+      const bit = (v, i)=> ((v >>> i) & 1) != 0;
+      for(let i=0; i<size; i++){ setFn(6, i, i % 2 == 0); setFn(i, 6, i % 2 == 0); }
+      function finder(cx, cy){
+        for(let dy=-4; dy<=4; dy++) for(let dx=-4; dx<=4; dx++){
+          const d = Math.max(Math.abs(dx), Math.abs(dy)), x = cx+dx, y = cy+dy;
+          if(x >= 0 && x < size && y >= 0 && y < size) setFn(x, y, d != 2 && d != 4);
+        }
+      }
+      finder(3, 3); finder(size-4, 3); finder(3, size-4);
+      let align = [];
+      if(ver > 1){
+        const n = Math.floor(ver/7) + 2;
+        const step = Math.ceil((ver*4 + 4) / (n*2 - 2)) * 2;
+        align = [6];
+        for(let pos = size - 7; align.length < n; pos -= step) align.splice(1, 0, pos);
+      }
+      align.forEach((ax, i)=>align.forEach((ay, j)=>{
+        if((i == 0 && j == 0) || (i == 0 && j == align.length-1) || (i == align.length-1 && j == 0)) return;
+        for(let dy=-2; dy<=2; dy++) for(let dx=-2; dx<=2; dx++) setFn(ax+dx, ay+dy, Math.max(Math.abs(dx), Math.abs(dy)) != 1);
+      }));
+      function formatBits(mask){
+        const d = (0 << 3) | mask; // ECC level M = 0
+        let rem = d;
+        for(let i=0; i<10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
+        const b = ((d << 10) | rem) ^ 0x5412;
+        for(let i=0; i<=5; i++) setFn(8, i, bit(b, i));
+        setFn(8, 7, bit(b, 6)); setFn(8, 8, bit(b, 7)); setFn(7, 8, bit(b, 8));
+        for(let i=9; i<15; i++) setFn(14 - i, 8, bit(b, i));
+        for(let i=0; i<8; i++) setFn(size - 1 - i, 8, bit(b, i));
+        for(let i=8; i<15; i++) setFn(8, size - 15 + i, bit(b, i));
+        setFn(8, size - 8, true);
+      }
+      formatBits(0);
+      if(ver >= 7){
+        let rem = ver;
+        for(let i=0; i<12; i++) rem = (rem << 1) ^ ((rem >>> 11) * 0x1F25);
+        const b = (ver << 12) | rem;
+        for(let i=0; i<18; i++){ const c = bit(b, i), a = size - 11 + i % 3, q = Math.floor(i/3); setFn(a, q, c); setFn(q, a, c); }
+      }
+      // place codewords in the zigzag
+      for(let i=0, right=size-1; right >= 1; right -= 2){
+        if(right == 6) right = 5;
+        for(let vert=0; vert<size; vert++) for(let j=0; j<2; j++){
+          const x = right - j, up = ((right + 1) & 2) == 0, y = up ? size - 1 - vert : vert;
+          if(!fn[y][x] && i < codewords.length*8){ mod[y][x] = bit(codewords[i >>> 3], 7 - (i & 7)); i++; }
+        }
+      }
+      function applyMask(m){
+        for(let y=0; y<size; y++) for(let x=0; x<size; x++){
+          let inv;
+          switch(m){
+            case 0: inv = (x + y) % 2 == 0; break;
+            case 1: inv = y % 2 == 0; break;
+            case 2: inv = x % 3 == 0; break;
+            case 3: inv = (x + y) % 3 == 0; break;
+            case 4: inv = (Math.floor(x/3) + Math.floor(y/2)) % 2 == 0; break;
+            case 5: inv = x*y % 2 + x*y % 3 == 0; break;
+            case 6: inv = (x*y % 2 + x*y % 3) % 2 == 0; break;
+            default: inv = ((x + y) % 2 + x*y % 3) % 2 == 0;
+          }
+          if(!fn[y][x] && inv) mod[y][x] = !mod[y][x];
+        }
+      }
+      function penalty(){
+        let score = 0, dark = 0;
+        const line = (get)=>{
+          let run = 1;
+          for(let i=1; i<size; i++){
+            if(get(i) == get(i-1)) run++; else { if(run >= 5) score += 3 + run - 5; run = 1; }
+          }
+          if(run >= 5) score += 3 + run - 5;
+          const s = []; for(let i=0; i<size; i++) s.push(get(i) ? 1 : 0);
+          const str = s.join('');
+          [/10111010000/g, /00001011101/g].forEach(re=>{ const m = str.match(re); if(m) score += 40 * m.length; });
+        };
+        for(let y=0; y<size; y++) line(i=>mod[y][i]);
+        for(let x=0; x<size; x++) line(i=>mod[i][x]);
+        for(let y=0; y<size; y++) for(let x=0; x<size; x++){
+          if(mod[y][x]) dark++;
+          if(x+1 < size && y+1 < size && mod[y][x] == mod[y][x+1] && mod[y][x] == mod[y+1][x] && mod[y][x] == mod[y+1][x+1]) score += 3;
+        }
+        const total = size*size;
+        score += (Math.ceil(Math.abs(dark*20 - total*10) / total) - 1) * 10;
+        return score;
+      }
+      let best = 0, bestScore = Infinity;
+      for(let m=0; m<8; m++){
+        applyMask(m); formatBits(m);
+        const p = penalty();
+        if(p < bestScore){ bestScore = p; best = m; }
+        applyMask(m);
+      }
+      applyMask(best); formatBits(best);
+      return mod;
+    }
+    function drawQR(canvas, text, px){
+      const m = makeQR(text), n = m.length, quiet = 4, scale = Math.max(2, Math.floor(px / (n + quiet*2)));
+      const dim = (n + quiet*2) * scale;
+      canvas.width = dim; canvas.height = dim;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, dim, dim);
+      ctx.fillStyle = '#000';
+      for(let y=0; y<n; y++) for(let x=0; x<n; x++) if(m[y][x]) ctx.fillRect((x+quiet)*scale, (y+quiet)*scale, scale, scale);
+    }
+
+  function initDisplay(){
+    const isPreview = (mode === 'preview');
+    document.title = isPreview ? 'PREVIEW — Presenter' : 'STAGE DISPLAY — Presenter';
+    displayView.classList.remove('hidden');
+    controlView.classList.add('hidden');
+    if(isPreview) displayView.classList.add('is-preview');
+    const stageText = document.getElementById('stageText');
+    const stageSubtitle = document.getElementById('stageSubtitle');
+    const previewBadge = document.getElementById('previewBadge');
+    if(previewBadge) previewBadge.classList.toggle('hidden', !isPreview);
+    const watchKey = isPreview ? PREVIEW_KEY : LIVE_KEY;
+    const read = isPreview ? getPreview : getLive;
+
+    function applyState(state){
+      if(!state || state.blank || !state.text){
+        stageText.textContent = '';
+        stageSubtitle.textContent = '';
+        stageText.classList.add('blank');
+        return;
+      }
+      stageText.classList.remove('blank');
+      stageText.textContent = state.text;
+      stageSubtitle.textContent = isPreview ? (state.subtitle || '') : '';
+      const len = state.text.length;
+      stageText.classList.remove('size-xl','size-l','size-m','size-s');
+      if(len < 40) stageText.classList.add('size-xl');
+      else if(len < 120) stageText.classList.add('size-l');
+      else if(len < 260) stageText.classList.add('size-m');
+      else stageText.classList.add('size-s');
+    }
+    // The Live screen plays the chosen transition effect whenever its slide changes;
+    // the Preview window always updates instantly.
+    let lastSig = null;
+    function render(state){
+      const hasText = !(!state || state.blank || !state.text);
+      const sig = hasText ? state.text : '';
+      if(isPreview || lastSig === null || sig === lastSig){
+        applyState(state);
+        lastSig = sig;
+        return;
+      }
+      const hadText = lastSig !== '';
+      lastSig = sig;
+      swapWithEffect(stageText, displayView, ()=>applyState(state), hadText, hasText, loadTransition());
+    }
+    applyStageStyle();
+    render(read());
+    window.addEventListener('storage', (e)=>{
+      if(e.key === watchKey) render(read());
+      if(e.key === FONT_KEY || e.key === COLOR_KEY || e.key === CUSTOM_FONT_KEY) applyStageStyle();
+    });
+    // Browsers throttle/freeze background tabs, which can delay updates while
+    // this window isn't visible. Catch up instantly the moment it's looked at again.
+    document.addEventListener('visibilitychange', ()=>{
+      if(!document.hidden){ render(read()); applyStageStyle(); }
+    });
+
+    const geomKey = isPreview ? 'presenter_preview_geometry_v1' : 'presenter_display_geometry_v1';
+    window.addEventListener('beforeunload', ()=>{
+      try{
+        localStorage.setItem(geomKey, JSON.stringify({w:window.outerWidth,h:window.outerHeight,l:window.screenX,t:window.screenY}));
+      }catch(e){}
+    });
+
+    if(!isPreview){
+      function applyBgMode(){
+        const bgMode = localStorage.getItem(BGMODE_KEY) || 'dark';
+        displayView.classList.toggle('bg-transparent', bgMode === 'transparent');
+      }
+      applyBgMode();
+      window.addEventListener('storage', (e)=>{ if(e.key === BGMODE_KEY) applyBgMode(); });
+      document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) applyBgMode(); });
+    }
+
+    if(isPreview){
+      let hotkeys = loadHotkeys();
+      window.addEventListener('storage', (e)=>{ if(e.key === HOTKEYS_KEY) hotkeys = loadHotkeys(); });
+      function sendPreviewLiveFromWindow(){
+        const p = getPreview();
+        if(!p || !p.text) return;
+        localStorage.setItem(LIVE_KEY, JSON.stringify({ itemId:p.itemId, slideIndex:p.slideIndex, text:p.text, subtitle:p.subtitle, type:p.type, blank:false }));
+        displayView.classList.add('is-sent');
+        setTimeout(()=>displayView.classList.remove('is-sent'), 200);
+      }
+      document.addEventListener('keydown', (e)=>{
+        if(e.key === hotkeys.golive){ e.preventDefault(); sendPreviewLiveFromWindow(); }
+      });
+    }
+  }
+
+  function initControl(){
+    document.title = 'Presenter — Control';
+    let items = loadItems();
+    if(items.length === 0){ items = [SEED_ITEM]; saveItems(items); }
+    let selectedItemId = items[0] ? items[0].id : null;
+
+    const songsList = document.getElementById('songsList');
+    const songSearchInput = document.getElementById('songSearchInput');
+    songSearchInput.addEventListener('input', ()=> renderLibrary());
+    const slidesGrid = document.getElementById('slidesGrid');
+    const selectedTitle = document.getElementById('selectedTitle');
+    const previewText = document.getElementById('previewText');
+    const previewSubtitle = document.getElementById('previewSubtitle');
+    const liveText = document.getElementById('liveText');
+    const liveSubtitle = document.getElementById('liveSubtitle');
+    const blankBtn = document.getElementById('blankBtn');
+    const blankBtnIcon = document.getElementById('blankBtnIcon');
+    const blankBtnLabel = document.getElementById('blankBtnLabel');
+
+    function setPreview(p){ localStorage.setItem(PREVIEW_KEY, JSON.stringify(p)); updatePreviewBox(p); renderSlides(); }
+    function setLive(l){ localStorage.setItem(LIVE_KEY, JSON.stringify(l)); updateLiveBox(l); renderSlides(); }
+
+    function updatePreviewBox(p){
+      if(!p || p.blank || !p.text){ previewText.textContent = '(nothing staged)'; previewSubtitle.textContent = ''; return; }
+      previewText.textContent = p.text; previewSubtitle.textContent = p.subtitle || '';
+    }
+    function updateLiveBox(l){
+      const isOn = !(!l || l.blank || !l.text);
+      if(!isOn){
+        liveText.textContent = ''; liveSubtitle.textContent = '';
+        blankBtn.classList.add('is-active');
+        blankBtnIcon.textContent = '\u25CB';
+        blankBtnLabel.textContent = 'Off air';
+        return;
+      }
+      blankBtn.classList.remove('is-active');
+      blankBtnIcon.textContent = '\u25CF';
+      blankBtnLabel.textContent = 'Live';
+      liveText.textContent = l.text; liveSubtitle.textContent = '';
+    }
+
+    let deletedStack = [];
+    function restoreLastDeleted(){
+      if(deletedStack.length === 0) return;
+      const {item, index} = deletedStack.pop();
+      const insertAt = Math.min(index, items.length);
+      items.splice(insertAt, 0, item);
+      saveItems(items);
+      selectedItemId = item.id;
+      renderLibrary(); renderSlides();
+    }
+
+    function buildLibraryItem(item, displayTitleOverride){
+      const li = document.createElement('li');
+      li.className = 'library-item' + (item.id===selectedItemId ? ' selected':'');
+      const info = document.createElement('div');
+      info.className = 'item-info';
+      const title = document.createElement('div');
+      title.className = 'item-title';
+      const shownTitle = displayTitleOverride || item.title;
+      title.textContent = shownTitle;
+      title.title = shownTitle;
+      info.appendChild(title);
+      const actions = document.createElement('div');
+      actions.className = 'item-actions';
+      const editBtn = document.createElement('button');
+      editBtn.textContent = '✎'; editBtn.title = 'Edit';
+      editBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); openEditModal(item); });
+      actions.appendChild(editBtn);
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '✕'; delBtn.title = 'Delete';
+      delBtn.addEventListener('click', (ev)=>{
+        ev.stopPropagation();
+        if(confirm(`Delete "${shownTitle}"?`)){
+          const live = getLive(); const preview = getPreview();
+          if(live.itemId === item.id){ setLive({blank:true,text:'',subtitle:''}); }
+          if(preview.itemId === item.id){ setPreview({blank:true,text:'',subtitle:''}); }
+          deletedStack.push({ item, index: items.findIndex(i=>i.id===item.id) });
+          if(deletedStack.length > 20) deletedStack.shift();
+          items = items.filter(i=>i.id!==item.id);
+          saveItems(items);
+          if(selectedItemId===item.id) selectedItemId = items[0] ? items[0].id : null;
+          renderLibrary(); renderSlides();
+        }
+      });
+      actions.appendChild(delBtn);
+      li.appendChild(info); li.appendChild(actions);
+      li.addEventListener('click', ()=>{ selectedItemId = item.id; renderLibrary(); renderSlides(); });
+      return li;
+    }
+
+    function renderLibraryColumn(container, colItems, emptyMessage){
+      container.innerHTML = '';
+      if(colItems.length === 0){
+        const p = document.createElement('div');
+        p.className = 'empty-hint';
+        p.textContent = emptyMessage;
+        container.appendChild(p);
+        return;
+      }
+      colItems.forEach(item=> container.appendChild(buildLibraryItem(item)));
+    }
+
+    function renderLibrary(){
+      const term = songSearchInput.value.trim().toLowerCase();
+      const songs = items;
+      const filteredSongs = term ? songs.filter(i=> i.title.toLowerCase().includes(term)) : songs;
+      const emptyMsg = songs.length === 0
+        ? 'No songs yet. Add one above.'
+        : (term ? `No songs match "${songSearchInput.value.trim()}".` : 'No songs yet. Add one above.');
+      renderLibraryColumn(songsList, filteredSongs, emptyMsg);
+    }
+
+    function currentItem(){ return items.find(i=>i.id===selectedItemId); }
+
+    function renderSlides(){
+      const item = currentItem();
+      slidesGrid.innerHTML = '';
+      if(!item){ selectedTitle.textContent = 'Select something from your library'; return; }
+      selectedTitle.textContent = item.title;
+      const live = getLive();
+      const preview = getPreview();
+      item.slides.forEach((slide, idx)=>{
+        const card = document.createElement('div');
+        let cls = 'slide-card';
+        if(live.itemId===item.id && live.slideIndex===idx && !live.blank) cls += ' is-live';
+        if(preview.itemId===item.id && preview.slideIndex===idx && !preview.blank) cls += ' is-preview';
+        card.className = cls;
+        const num = document.createElement('span');
+        num.className = 'slide-num'; num.textContent = (idx+1);
+        const body = document.createElement('div');
+        body.textContent = slide.text;
+        card.appendChild(num); card.appendChild(body);
+        card.addEventListener('click', ()=> stagePreview(item, idx));
+        card.addEventListener('dblclick', ()=> { stagePreview(item, idx); sendPreviewLive(); });
+        slidesGrid.appendChild(card);
+      });
+    }
+
+    function stagePreview(item, idx){
+      const slide = item.slides[idx];
+      setPreview({ itemId:item.id, slideIndex:idx, text:slide.text, subtitle:slide.subtitle||item.title, type:item.type, blank:false });
+    }
+
+    function sendPreviewLive(){
+      const p = getPreview();
+      if(!p || !p.text) return;
+      setLive({ itemId:p.itemId, slideIndex:p.slideIndex, text:p.text, subtitle:p.subtitle, type:p.type, blank:false });
+    }
+
+    function toggleBlank(){
+      const live = getLive();
+      if(live.blank){ if(live.text){ setLive(Object.assign({}, live, {blank:false})); } }
+      else { setLive(Object.assign({}, live, {blank:true})); }
+    }
+
+    function stepPreview(dir){
+      const p = getPreview();
+      const item = currentItem();
+      if(!item) return;
+      let idx = (p.itemId===item.id) ? p.slideIndex : -1;
+      idx += dir;
+      if(idx<0) idx=0;
+      if(idx>item.slides.length-1) idx=item.slides.length-1;
+      stagePreview(item, idx);
+    }
+
+    function jumpPreview(edge){
+      const item = currentItem();
+      if(!item || !item.slides.length) return;
+      const idx = edge==='end' ? item.slides.length-1 : 0;
+      stagePreview(item, idx);
+    }
+
+    document.getElementById('prevBtn').addEventListener('click', ()=>stepPreview(-1));
+    document.getElementById('nextBtn').addEventListener('click', ()=>stepPreview(1));
+    document.getElementById('lineUpBtn').addEventListener('click', ()=>stepPreview(-1));
+    document.getElementById('lineDownBtn').addEventListener('click', ()=>stepPreview(1));
+    document.getElementById('goLiveBtn').addEventListener('click', sendPreviewLive);
+    blankBtn.addEventListener('click', toggleBlank);
+    let isLocked = false;
+    const lockBtn = document.getElementById('lockBtn');
+    const lockBtnIcon = document.getElementById('lockBtnIcon');
+    const lockBtnLabel = document.getElementById('lockBtnLabel');
+    function setLocked(v){
+      isLocked = v;
+      document.body.classList.toggle('is-locked', isLocked);
+      lockBtn.classList.toggle('is-active', isLocked);
+      lockBtnIcon.textContent = isLocked ? '\u{1F512}' : '\u{1F513}';
+      lockBtnLabel.textContent = isLocked ? 'Locked' : 'Unlocked';
+    }
+    lockBtn.addEventListener('click', ()=> setLocked(!isLocked));
+
+    function openRemembered(geomKey, mode, windowName, defaults){
+      let g = defaults;
+      try{ g = Object.assign({}, defaults, JSON.parse(localStorage.getItem(geomKey)) || {}); }catch(e){}
+      return window.open(location.href.split('?')[0] + '?mode=' + mode, windowName, `width=${g.w},height=${g.h},left=${g.l},top=${g.t}`);
+    }
+    document.getElementById('openPreviewBtn').addEventListener('click', ()=>{
+      openRemembered('presenter_preview_geometry_v1', 'preview', 'PresenterPreview', {w:1000,h:600,l:80,t:80});
+    });
+    document.getElementById('openDisplayBtn').addEventListener('click', ()=>{
+      openRemembered('presenter_display_geometry_v1', 'display', 'PresenterDisplay', {w:1280,h:720,l:150,t:80});
+    });
+
+    // Workspace: Premiere Pro-style docking. Drag a panel's title bar to rearrange,
+    // drag the dividers to resize, double-click a title bar (or press ` over a panel)
+    // to maximize it, and save/switch named workspaces from the bar above.
+    (function setupWorkspace(){
+      const ws = document.querySelector('.workspace');
+      const ids = ['lib','slides','prev'];
+      const panels = { lib: ws.querySelector('.library'), slides: ws.querySelector('.slides-panel'), prev: ws.querySelector('.preview-panel') };
+      const titles = { lib:'Library', slides:'Slides', prev:'Preview & Live' };
+      const PRESETS = {
+        'Default': { order:['lib','slides','prev'], hidden:[], weights:{lib:22, slides:56, prev:22} },
+        'Library': { order:['lib','slides','prev'], hidden:[], weights:{lib:42, slides:38, prev:20} },
+        'Slides':  { order:['lib','slides','prev'], hidden:[], weights:{lib:14, slides:62, prev:24} },
+        'Live':    { order:['slides','prev','lib'], hidden:[], weights:{slides:30, prev:52, lib:18} }
+      };
+      const CUR_KEY = 'presenter_workspace_current_v1';
+      const CUSTOM_KEY = 'presenter_workspaces_custom_v1';
+      const MIN_W = 170;
+      const clone = o => JSON.parse(JSON.stringify(o));
+      function readJSON(k, fb){ try{ const v = JSON.parse(localStorage.getItem(k)); return v == null ? fb : v; }catch(e){ return fb; } }
+      function writeJSON(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+      function validLayout(l){
+        return l && Array.isArray(l.order) && l.order.length === 3 && ids.every(i=>l.order.includes(i))
+          && Array.isArray(l.hidden) && l.hidden.length < 3 && l.weights && ids.every(i=>l.weights[i] > 0);
+      }
+
+      let custom = readJSON(CUSTOM_KEY, {});
+      Object.keys(custom).forEach(k=>{ if(!validLayout(custom[k])) delete custom[k]; });
+      function savedLayout(name){ return PRESETS[name] || custom[name] || null; }
+
+      const stored = readJSON(CUR_KEY, null);
+      let activeName = (stored && savedLayout(stored.name)) ? stored.name : 'Default';
+      let layout = (stored && validLayout(stored.layout)) ? clone(stored.layout) : clone(savedLayout(activeName));
+      let maxId = null;
+      let dragId = null;
+      let hoverId = null;
+
+      // Build title bars + scrolling bodies around the existing panel contents.
+      ids.forEach(id=>{
+        const el = panels[id];
+        el.classList.add('dock-panel');
+        el.dataset.panel = id;
+        const body = document.createElement('div');
+        body.className = 'panel-body';
+        while(el.firstChild) body.appendChild(el.firstChild);
+        const head = document.createElement('div');
+        head.className = 'panel-head';
+        head.draggable = true;
+        head.title = 'Drag to rearrange — double-click to maximize';
+        head.innerHTML = '<span class="grip">⋮⋮</span><span>' + titles[id] + '</span><span class="spacer"></span>'
+          + '<button type="button" class="max-btn" title="Maximize / restore (`)">⤢</button>'
+          + '<button type="button" class="close-btn" title="Close panel (reopen from the Panels checkboxes)">×</button>';
+        el.appendChild(head);
+        el.appendChild(body);
+        head.querySelector('.max-btn').addEventListener('click', ()=> toggleMax(id));
+        head.querySelector('.close-btn').addEventListener('click', ()=> setHidden(id, true));
+        head.addEventListener('dblclick', (e)=>{ if(!e.target.closest('button')) toggleMax(id); });
+        head.addEventListener('dragstart', (e)=>{
+          dragId = id;
+          el.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          try{ e.dataTransfer.setData('text/plain', id); }catch(err){}
+        });
+        head.addEventListener('dragend', ()=>{ dragId = null; clearDrop(); });
+        el.addEventListener('dragover', (e)=>{
+          if(!dragId || dragId === id) return;
+          e.preventDefault();
+          const r = el.getBoundingClientRect();
+          const before = e.clientX < r.left + r.width/2;
+          clearDrop(); el.classList.add(before ? 'drop-before' : 'drop-after');
+        });
+        el.addEventListener('dragleave', (e)=>{ if(!el.contains(e.relatedTarget)) el.classList.remove('drop-before','drop-after'); });
+        el.addEventListener('drop', (e)=>{
+          if(!dragId || dragId === id) return;
+          e.preventDefault();
+          const before = el.classList.contains('drop-before');
+          const order = layout.order.filter(x=>x !== dragId);
+          const idx = order.indexOf(id) + (before ? 0 : 1);
+          order.splice(idx, 0, dragId);
+          layout.order = order;
+          dragId = null; clearDrop(); changed();
+        });
+        el.addEventListener('mouseenter', ()=>{ hoverId = id; });
+        el.addEventListener('mouseleave', ()=>{ if(hoverId === id) hoverId = null; });
+      });
+      function clearDrop(){ ids.forEach(i=> panels[i].classList.remove('dragging','drop-before','drop-after')); }
+
+      function toggleMax(id){ maxId = (maxId === id) ? null : id; render(); }
+      function setHidden(id, hide){
+        const has = layout.hidden.includes(id);
+        if(hide && !has){
+          if(layout.hidden.length >= 2) return; // always keep one panel
+          layout.hidden.push(id);
+        } else if(!hide && has){
+          layout.hidden = layout.hidden.filter(x=>x !== id);
+        }
+        if(maxId === id) maxId = null;
+        changed();
+      }
+
+      function visibleOrder(){ return layout.order.filter(i=> !layout.hidden.includes(i)); }
+
+      function render(){
+        // remove old handles, then re-append panels in order with handles between
+        ws.querySelectorAll('.panel-resize-handle').forEach(h=>h.remove());
+        const vis = maxId ? [maxId] : visibleOrder();
+        layout.order.forEach(id=>{ ws.appendChild(panels[id]); });
+        const visIds = new Set(vis);
+        ids.forEach(id=>{
+          const el = panels[id];
+          el.style.display = visIds.has(id) ? '' : 'none';
+          el.style.flex = (maxId ? 1 : layout.weights[id]) + ' 1 0px';
+          el.querySelector('.max-btn').textContent = (maxId === id) ? '⤡' : '⤢';
+        });
+        if(!maxId){
+          for(let i=0; i<vis.length-1; i++){
+            const h = document.createElement('div');
+            h.className = 'panel-resize-handle';
+            h.title = 'Drag to resize — double-click to reset the workspace';
+            panels[vis[i]].after(h);
+            h.addEventListener('pointerdown', (e)=> startResize(e, h, vis[i], vis[i+1]));
+            h.addEventListener('dblclick', resetWorkspace);
+          }
+        }
+        document.querySelectorAll('#workspaceBar input[data-panel]').forEach(cb=>{
+          cb.checked = !layout.hidden.includes(cb.dataset.panel);
+        });
+        renderTabs();
+      }
+
+      function startResize(downEvent, handle, leftId, rightId){
+        if(window.matchMedia('(max-width:900px)').matches) return;
+        downEvent.preventDefault();
+        // convert every visible weight to its current pixel width so units stay consistent
+        visibleOrder().forEach(id=>{ layout.weights[id] = panels[id].getBoundingClientRect().width; });
+        const startX = downEvent.clientX;
+        const a0 = layout.weights[leftId], b0 = layout.weights[rightId];
+        handle.classList.add('is-dragging');
+        document.body.classList.add('is-resizing');
+        function onMove(e){
+          let dx = e.clientX - startX;
+          dx = Math.max(MIN_W - a0, Math.min(b0 - MIN_W, dx));
+          layout.weights[leftId] = a0 + dx;
+          layout.weights[rightId] = b0 - dx;
+          panels[leftId].style.flex = layout.weights[leftId] + ' 1 0px';
+          panels[rightId].style.flex = layout.weights[rightId] + ' 1 0px';
+        }
+        function onUp(){
+          document.removeEventListener('pointermove', onMove);
+          document.removeEventListener('pointerup', onUp);
+          handle.classList.remove('is-dragging');
+          document.body.classList.remove('is-resizing');
+          changed();
+        }
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+      }
+
+      function fractions(l){
+        const vis = l.order.filter(i=>!l.hidden.includes(i));
+        const total = vis.reduce((n,i)=>n + l.weights[i], 0);
+        const f = {}; vis.forEach(i=> f[i] = l.weights[i]/total);
+        return f;
+      }
+      function sameLayout(x, y){
+        if(!x || !y) return false;
+        const vx = x.order.filter(i=>!x.hidden.includes(i)), vy = y.order.filter(i=>!y.hidden.includes(i));
+        if(vx.join() !== vy.join()) return false;
+        const fx = fractions(x), fy = fractions(y);
+        return vx.every(i=> Math.abs(fx[i]-fy[i]) < 0.015);
+      }
+      function isModified(){ return !sameLayout(layout, savedLayout(activeName)); }
+
+      function changed(){
+        writeJSON(CUR_KEY, { name: activeName, layout: layout });
+        render();
+      }
+
+      function switchTo(name){
+        const l = savedLayout(name);
+        if(!l) return;
+        activeName = name; layout = clone(l); maxId = null; changed();
+      }
+      function resetWorkspace(){
+        const l = savedLayout(activeName) || PRESETS['Default'];
+        layout = clone(l); maxId = null; changed();
+      }
+
+      function renderTabs(){
+        const tabs = document.getElementById('wsTabs');
+        tabs.innerHTML = '';
+        const names = Object.keys(PRESETS).concat(Object.keys(custom));
+        names.forEach(name=>{
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'ws-tab' + (name === activeName ? ' active' : '');
+          const label = document.createElement('span');
+          label.textContent = name + ((name === activeName && isModified()) ? ' *' : '');
+          b.appendChild(label);
+          if(custom[name]){
+            const x = document.createElement('span');
+            x.className = 'ws-del'; x.textContent = '×'; x.title = 'Delete this workspace';
+            x.addEventListener('click', (e)=>{
+              e.stopPropagation();
+              if(!confirm('Delete the workspace "' + name + '"?')) return;
+              delete custom[name]; writeJSON(CUSTOM_KEY, custom);
+              if(activeName === name){ activeName = 'Default'; }
+              changed();
+            });
+            b.appendChild(x);
+          }
+          b.addEventListener('click', ()=> switchTo(name));
+          tabs.appendChild(b);
+        });
+      }
+
+      document.getElementById('wsResetBtn').addEventListener('click', resetWorkspace);
+      document.getElementById('wsSaveBtn').addEventListener('click', ()=>{
+        let name = prompt('Name this workspace:', '');
+        if(name == null) return;
+        name = name.trim().slice(0, 24);
+        if(!name) return;
+        if(PRESETS[name]){ alert('That name is used by a built-in workspace — pick another.'); return; }
+        if(custom[name] && !confirm('Replace your existing workspace "' + name + '"?')) return;
+        custom[name] = clone(layout);
+        writeJSON(CUSTOM_KEY, custom);
+        activeName = name;
+        changed();
+      });
+      document.querySelectorAll('#workspaceBar input[data-panel]').forEach(cb=>{
+        cb.addEventListener('change', ()=>{
+          setHidden(cb.dataset.panel, !cb.checked);
+          render(); // re-sync checkbox if the change was refused (last panel)
+        });
+      });
+
+      // ` (backtick) maximizes / restores the panel under the mouse, like Premiere.
+      document.addEventListener('keydown', (e)=>{
+        if(e.key !== '`') return;
+        const t = e.target;
+        if(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+        if(document.querySelector('.modal:not(.hidden)')) return;
+        const id = maxId || hoverId;
+        if(!id) return;
+        e.preventDefault();
+        toggleMax(id);
+      });
+
+      render();
+    })();
+
+    // Hotkeys (remappable) + background mode
+    let hotkeys = loadHotkeys();
+    let listeningAction = null;
+    function displayKeyName(key){ return key === ' ' ? 'Space' : (key.length===1 ? key.toUpperCase() : key); }
+    function refreshHotkeyLabels(){
+      document.querySelectorAll('.hotkey-value').forEach(btn=>{
+        btn.classList.remove('listening');
+        btn.textContent = displayKeyName(hotkeys[btn.dataset.action]);
+      });
+    }
+    document.querySelectorAll('.hotkey-value').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        document.querySelectorAll('.hotkey-value').forEach(b=>b.classList.remove('listening'));
+        btn.classList.add('listening');
+        btn.textContent = 'Press a key\u2026';
+        listeningAction = btn.dataset.action;
+      });
+    });
+    document.getElementById('settingsResetBtn').addEventListener('click', ()=>{
+      hotkeys = Object.assign({}, DEFAULT_HOTKEYS);
+      saveHotkeys(hotkeys);
+      refreshHotkeyLabels();
+    });
+
+    function loadBgMode(){ return localStorage.getItem(BGMODE_KEY) || 'dark'; }
+    document.querySelectorAll('input[name="bgMode"]').forEach(r=>{
+      r.addEventListener('change', ()=>{ if(r.checked) localStorage.setItem(BGMODE_KEY, r.value); });
+    });
+
+    function refreshFontSwatches(){
+      const font = localStorage.getItem(FONT_KEY) || DEFAULT_FONT;
+      document.querySelectorAll('.font-swatch').forEach(btn=>{
+        btn.classList.toggle('selected', btn.dataset.font === font);
+      });
+    }
+    document.querySelectorAll('.font-swatch').forEach(btn=>{
+      if(btn.id === 'customFontSwatch') return; // has its own click handler below
+      btn.addEventListener('click', ()=>{
+        localStorage.setItem(FONT_KEY, btn.dataset.font);
+        refreshFontSwatches();
+        applyStageStyle();
+      });
+    });
+
+    const customFontSwatch = document.getElementById('customFontSwatch');
+    const customFontUpload = document.getElementById('customFontUpload');
+    const customFontRemoveBtn = document.getElementById('customFontRemoveBtn');
+    const customFontHint = document.getElementById('customFontHint');
+    function refreshCustomFontUI(){
+      const data = getCustomFontData();
+      if(data){
+        customFontSwatch.classList.remove('font-swatch-empty');
+        customFontSwatch.title = 'Use "' + data.name + '"';
+        customFontSwatch.textContent = data.name.length > 16 ? data.name.slice(0,14) + '\u2026' : data.name;
+        customFontSwatch.style.fontFamily = `"${CUSTOM_FONT_FAMILY}",${FONT_STACKS[DEFAULT_FONT]}`;
+        customFontRemoveBtn.classList.remove('hidden');
+        customFontHint.textContent = `Using "${data.name}". Saved on this computer only.`;
+        ensureCustomFontLoaded().then(ok=>{
+          if(!ok) customFontHint.textContent = `Couldn't load "${data.name}" \u2014 the file may be corrupted or an unsupported format. Try uploading it again.`;
+        });
+      } else {
+        customFontSwatch.classList.add('font-swatch-empty');
+        customFontSwatch.title = 'Click to upload a font file';
+        customFontSwatch.textContent = 'Custom Font';
+        customFontSwatch.style.fontFamily = '';
+        customFontRemoveBtn.classList.add('hidden');
+        customFontHint.textContent = 'Click "Custom Font" above, or choose a file below \u2014 a .ttf, .otf, .woff or .woff2 file under 2MB. It\u2019s saved on this computer only.';
+      }
+    }
+    customFontSwatch.addEventListener('click', ()=>{
+      if(getCustomFontData()){
+        localStorage.setItem(FONT_KEY, 'custom');
+        refreshFontSwatches();
+        applyStageStyle();
+      } else {
+        customFontUpload.click();
+      }
+    });
+    customFontUpload.addEventListener('change', ()=>{
+      const file = customFontUpload.files && customFontUpload.files[0];
+      if(!file) return;
+      if(file.size > 2*1024*1024){
+        alert('That font file is over 2MB \u2014 pick a smaller file (most .woff2 fonts are well under this).');
+        customFontUpload.value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        try{
+          localStorage.setItem(CUSTOM_FONT_KEY, JSON.stringify({ name: file.name.replace(/\.[^.]+$/, ''), dataUrl: reader.result }));
+        }catch(err){
+          alert('That font file was too large to save in the browser\u2019s storage. Try a smaller file \u2014 ideally a .woff2 under 1MB.');
+          customFontUpload.value = '';
+          return;
+        }
+        customFontLoaded = false;
+        localStorage.setItem(FONT_KEY, 'custom');
+        refreshCustomFontUI();
+        refreshFontSwatches();
+        applyStageStyle();
+        customFontUpload.value = '';
+      };
+      reader.onerror = ()=>{ alert('Couldn\u2019t read that font file \u2014 try again or pick a different file.'); };
+      reader.readAsDataURL(file);
+    });
+    customFontRemoveBtn.addEventListener('click', ()=>{
+      localStorage.removeItem(CUSTOM_FONT_KEY);
+      customFontLoaded = false;
+      if((localStorage.getItem(FONT_KEY) || DEFAULT_FONT) === 'custom'){
+        localStorage.setItem(FONT_KEY, DEFAULT_FONT);
+      }
+      refreshCustomFontUI();
+      refreshFontSwatches();
+      applyStageStyle();
+    });
+
+    const stageColorPicker = document.getElementById('stageColorPicker');
+    const stageColorResetBtn = document.getElementById('stageColorResetBtn');
+    function refreshColorPicker(){
+      stageColorPicker.value = localStorage.getItem(COLOR_KEY) || DEFAULT_COLOR;
+    }
+    stageColorPicker.addEventListener('input', ()=>{
+      localStorage.setItem(COLOR_KEY, stageColorPicker.value);
+      applyStageStyle();
+    });
+    stageColorResetBtn.addEventListener('click', ()=>{
+      localStorage.removeItem(COLOR_KEY);
+      refreshColorPicker();
+      applyStageStyle();
+    });
+
+    // Slide transition settings
+    const fxSelect = document.getElementById('fxSelect');
+    const fxDuration = document.getElementById('fxDuration');
+    const fxDurationLabel = document.getElementById('fxDurationLabel');
+    const fxDemo = document.getElementById('fxDemo');
+    const fxDemoText = document.getElementById('fxDemoText');
+    const FX_OPTIONS = [['none','None (instant)']].concat(FX_KEYS.map(k=>[k, FX[k].label])).concat([['random','Random']]);
+    FX_OPTIONS.forEach(o=>{ const op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; fxSelect.appendChild(op); });
+    function refreshFx(){
+      const t = loadTransition();
+      fxSelect.value = t.effect;
+      fxDuration.value = t.duration;
+      fxDurationLabel.textContent = (t.duration / 1000).toFixed(2).replace(/0$/,'') + ' s';
+    }
+    function saveFxFromControls(){
+      saveTransition({ effect: fxSelect.value, duration: Number(fxDuration.value) });
+      refreshFx();
+    }
+    fxSelect.addEventListener('change', ()=>{ saveFxFromControls(); playFxDemo(); });
+    fxDuration.addEventListener('input', saveFxFromControls);
+    fxDuration.addEventListener('change', playFxDemo);
+    const FX_DEMO_LINES = ['Amazing grace,\nhow sweet the sound', 'that saved a wretch\nlike me'];
+    let fxDemoIdx = 0;
+    function playFxDemo(){
+      fxDemoIdx = (fxDemoIdx + 1) % FX_DEMO_LINES.length;
+      swapWithEffect(fxDemoText, fxDemo, ()=>{ fxDemoText.textContent = FX_DEMO_LINES[fxDemoIdx]; }, true, true, loadTransition());
+    }
+    document.getElementById('fxTestBtn').addEventListener('click', playFxDemo);
+    refreshFx();
+
+    const settingsModal = document.getElementById('settingsModal');
+    document.getElementById('settingsBtn').addEventListener('click', ()=>{
+      const mode = loadBgMode();
+      document.querySelectorAll('input[name="bgMode"]').forEach(r=>{ r.checked = (r.value === mode); });
+      refreshFontSwatches();
+      refreshCustomFontUI();
+      refreshColorPicker();
+      refreshHotkeyLabels();
+      settingsModal.classList.remove('hidden');
+    });
+    document.getElementById('settingsCloseBtn').addEventListener('click', ()=> settingsModal.classList.add('hidden'));
+
+    function isAnyModalOpen(){
+      return Array.from(document.querySelectorAll('.modal')).some(m => !m.classList.contains('hidden'));
+    }
+    document.addEventListener('keydown', (e)=>{
+      if(listeningAction){
+        e.preventDefault();
+        hotkeys[listeningAction] = e.key;
+        saveHotkeys(hotkeys);
+        listeningAction = null;
+        refreshHotkeyLabels();
+        return;
+      }
+      if(isAnyModalOpen()) return;
+      if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
+      if((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z'){
+        e.preventDefault();
+        restoreLastDeleted();
+        return;
+      }
+      if(isLocked) return;
+      if(/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey){
+        e.preventDefault();
+        numberBuffer += e.key;
+        updateNumberBufferUI();
+        clearTimeout(numberBufferTimer);
+        const item = currentItem();
+        const totalSlides = item ? item.slides.length : 0;
+        const bufferedNum = parseInt(numberBuffer, 10);
+        // If one more digit could never make a valid slide number, jump right away instead of waiting.
+        if(totalSlides > 0 && bufferedNum * 10 > totalSlides){
+          commitNumberBuffer();
+        } else {
+          numberBufferTimer = setTimeout(commitNumberBuffer, 400);
+        }
+        return;
+      }
+      if(numberBuffer && e.key === 'Escape'){ e.preventDefault(); cancelNumberBuffer(); return; }
+      if(numberBuffer && e.key === 'Enter'){ e.preventDefault(); commitNumberBuffer(); return; }
+      if(e.key === hotkeys.next){ e.preventDefault(); stepPreview(1); }
+      else if(e.key === hotkeys.prev){ e.preventDefault(); stepPreview(-1); }
+      else if(e.key === hotkeys.lineDown){ e.preventDefault(); stepPreview(1); }
+      else if(e.key === hotkeys.lineUp){ e.preventDefault(); stepPreview(-1); }
+      else if(e.key === hotkeys.home){ e.preventDefault(); jumpPreview('home'); }
+      else if(e.key === hotkeys.end){ e.preventDefault(); jumpPreview('end'); }
+      else if(e.key === hotkeys.golive){
+        e.preventDefault();
+        const btn = document.getElementById('goLiveBtn');
+        btn.classList.add('is-pressed');
+        setTimeout(()=>btn.classList.remove('is-pressed'), 150);
+        btn.click();
+      }
+      else if(e.key.toLowerCase() === (hotkeys.blank||'').toLowerCase()){ toggleBlank(); }
+    });
+
+    let numberBuffer = '';
+    let numberBufferTimer = null;
+    const slideJumpIndicator = document.getElementById('slideJumpIndicator');
+    function updateNumberBufferUI(){
+      if(!slideJumpIndicator) return;
+      if(numberBuffer){
+        slideJumpIndicator.textContent = 'Go to slide ' + numberBuffer + '\u2026';
+        slideJumpIndicator.classList.remove('hidden');
+      } else {
+        slideJumpIndicator.classList.add('hidden');
+      }
+    }
+    function cancelNumberBuffer(){
+      clearTimeout(numberBufferTimer);
+      numberBuffer = '';
+      updateNumberBufferUI();
+    }
+    function commitNumberBuffer(){
+      clearTimeout(numberBufferTimer);
+      const buffered = numberBuffer;
+      numberBuffer = '';
+      updateNumberBufferUI();
+      if(!buffered) return;
+      const item = currentItem();
+      if(!item) return;
+      const idx = parseInt(buffered, 10) - 1;
+      if(idx >= 0 && idx < item.slides.length){ stagePreview(item, idx); }
+    }
+
+    // Song modal
+    const songModal = document.getElementById('songModal');
+    const songTitleInput = document.getElementById('songTitleInput');
+    const songLyricsInput = document.getElementById('songLyricsInput');
+    let editingItemId = null;
+
+    let lyricsSearchPending = false;
+    document.getElementById('searchLyricsBtn').addEventListener('click', ()=>{
+      const title = songTitleInput.value.trim();
+      const q = title ? `${title} lyrics` : 'song lyrics';
+      window.open('https://www.google.com/search?q=' + encodeURIComponent(q), '_blank', 'noopener');
+      lyricsSearchPending = true;
+    });
+    window.addEventListener('focus', ()=>{
+      if(lyricsSearchPending){
+        lyricsSearchPending = false;
+        if(!songModal.classList.contains('hidden')){ songLyricsInput.focus(); }
+      }
+    });
+    document.getElementById('newSongBtn').addEventListener('click', ()=>{
+      editingItemId = null;
+      songTitleInput.value = ''; songLyricsInput.value = '';
+      document.getElementById('songModalHeading').textContent = 'New item';
+      songModal.classList.remove('hidden'); songTitleInput.focus();
+    });
+    function openEditModal(item){
+      editingItemId = item.id;
+      songTitleInput.value = item.title;
+      songLyricsInput.value = item.slides.map(s=>s.text).join('\n\n');
+      document.getElementById('songModalHeading').textContent = 'Edit item';
+      songModal.classList.remove('hidden');
+    }
+    document.getElementById('songCancelBtn').addEventListener('click', ()=> songModal.classList.add('hidden'));
+    document.getElementById('songSaveBtn').addEventListener('click', ()=>{
+      const title = songTitleInput.value.trim();
+      const raw = songLyricsInput.value.trim();
+      if(!title || !raw){ alert('Add a title and some text first.'); return; }
+      const slides = splitLyrics(raw).map(t=>({text:t, subtitle:title}));
+      if(editingItemId){
+        const it = items.find(i=>i.id===editingItemId);
+        it.title = title; it.slides = slides; it.type = 'song';
+      } else {
+        items.push({id:uid(), type:'song', title, slides});
+      }
+      saveItems(items);
+      selectedItemId = editingItemId || items[items.length-1].id;
+      songModal.classList.add('hidden');
+      renderLibrary(); renderSlides();
+    });
+    function splitLyrics(raw){
+      let parts;
+      if(/\n\s*---\s*\n/.test(raw)){ parts = raw.split(/\n\s*---\s*\n/); }
+      else { parts = raw.split(/\n\s*\n/); }
+      return parts.map(p=>p.trim()).filter(Boolean);
+    }
+
+    // --- Mobile remote bridge -------------------------------------------
+    // Optional: only does anything if this page was opened via server.js
+    // (which auto-injects a PIN below) — a plain file:// open behaves
+    // exactly as before, with no prompts and no network activity.
+    (function initRemoteBridge(){
+      const pin = window.__SERVER_PIN__ || null;
+      if(!pin) return;
+      const origin = location.origin;
+      let pushTimer = null;
+      function pushRemoteState(){
+        clearTimeout(pushTimer);
+        pushTimer = setTimeout(()=>{
+          try{
+            const p = getPreview(), l = getLive();
+            const payload = {
+              from: 'control',
+              type: 'state',
+              pin: pin,
+              preview: { text: p.text||'', subtitle: p.subtitle||'' },
+              live: { text: l.text||'', subtitle: '', blank: !!(l.blank || !l.text) },
+              items: items.map(i=>({ id:i.id, title:i.title, type:i.type })),
+              selectedItemId: selectedItemId
+            };
+            fetch(origin + '/api/send', {
+              method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+            }).catch(()=>{});
+          }catch(e){}
+        }, 120);
+      }
+      // Wrap the existing state setters so every place that already calls
+      // them (hotkeys, buttons, item add/edit/delete) also notifies phones.
+      const _setPreview = setPreview;
+      setPreview = function(p){ _setPreview(p); pushRemoteState(); };
+      const _setLive = setLive;
+      setLive = function(l){ _setLive(l); pushRemoteState(); };
+      const _renderLibrary = renderLibrary;
+      renderLibrary = function(){ _renderLibrary(); pushRemoteState(); };
+
+      let es = null;
+      function handleRemoteMessage(ev){
+        let msg;
+        try{ msg = JSON.parse(ev.data); }catch(e){ return; }
+        if(!msg || msg.from !== 'remote') return;
+        if(msg.type === 'next' || msg.type === 'lineDown'){ stepPreview(1); }
+        else if(msg.type === 'prev' || msg.type === 'lineUp'){ stepPreview(-1); }
+        else if(msg.type === 'home'){ jumpPreview('home'); }
+        else if(msg.type === 'end'){ jumpPreview('end'); }
+        else if(msg.type === 'golive'){ sendPreviewLive(); }
+        else if(msg.type === 'blank'){ toggleBlank(); }
+        else if(msg.type === 'select' && msg.itemId){
+          selectedItemId = msg.itemId;
+          renderLibrary(); renderSlides();
+          jumpPreview('home');
+        }
+        else if(msg.type === 'requestState'){ pushRemoteState(); }
+      }
+      function connectRemoteBridge(){
+        try{
+          es = new EventSource(origin + '/events?pin=' + encodeURIComponent(pin));
+          es.onmessage = handleRemoteMessage;
+        }catch(e){}
+      }
+      connectRemoteBridge();
+      // Browsers can throttle or drop a background tab's connections. Catch
+      // this window up instantly (reconnect + push fresh state) the moment
+      // it's looked at again, instead of leaving the phone remote stale.
+      document.addEventListener('visibilitychange', ()=>{
+        if(document.hidden) return;
+        if(!es || es.readyState === EventSource.CLOSED) connectRemoteBridge();
+        pushRemoteState();
+      });
+    })();
+
+    // --- Phone remote helper: shows the link + QR code ------------------------
+    (function setupPhoneModal(){
+      const modal = document.getElementById('phoneModal');
+      const body = document.getElementById('phoneBody');
+      const info = window.__SERVER_INFO__ || null;
+      const pin = window.__SERVER_PIN__ || null;
+      function el(tag, cls, text){ const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; }
+      function warn(html){ const d = el('div','phone-warn'); d.innerHTML = html; return d; }
+      function render(){
+        body.innerHTML = '';
+        if(!pin || !info){
+          if(location.protocol === 'file:'){
+            body.appendChild(warn('<strong>The helper server isn\'t running, so a phone can\'t connect yet.</strong><br>You opened this by double-clicking the file. Instead, start the server: double-click <strong>Presenter.bat</strong> (Windows), <strong>Presenter.app</strong> (Mac) or <strong>presenter.sh</strong> (Linux). It opens Presenter at <strong>http://localhost:8787/</strong> — then click <strong>📱 Phone</strong> again. (Node.js must be installed once — free from nodejs.org.)'));
+          } else {
+            body.appendChild(warn('<strong>Open Presenter on this computer at <a style="color:#E8B4A6" href="http://localhost:' + (location.port || 8787) + '/">http://localhost:' + (location.port || 8787) + '/</a></strong> to see the phone link. (For safety, the PIN is only shown on the computer running the server.)'));
+          }
+          return;
+        }
+        if(!info.addresses.length){
+          body.appendChild(warn('<strong>No network address found.</strong> Connect this computer to Wi-Fi (or Ethernet), then close and reopen this window.'));
+          return;
+        }
+        let idx = 0;
+        const wrap = el('div','phone-qr');
+        const canvas = document.createElement('canvas');
+        const side = el('div','phone-info');
+        wrap.appendChild(canvas); wrap.appendChild(side);
+        body.appendChild(wrap);
+        function draw(){
+          const base = 'http://' + info.addresses[idx] + ':' + info.port + '/remote';
+          try{ drawQR(canvas, base + '?pin=' + pin, 400); }catch(e){}
+          side.innerHTML = '';
+          const p1 = el('div', null, 'Scan the QR code with your phone camera, or type this into your phone\'s browser:');
+          const link = el('div','phone-link', base);
+          const p2 = el('div', null, 'PIN (asked once, if you type the link):');
+          const pinEl = el('div','phone-pin', pin);
+          const copy = el('button', null, 'Copy link');
+          copy.style.marginTop = '10px';
+          copy.addEventListener('click', ()=>{
+            const full = base + '?pin=' + pin;
+            const done = ()=>{ copy.textContent = 'Copied ✓'; setTimeout(()=>copy.textContent = 'Copy link', 1500); };
+            if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(full).then(done, ()=>{ prompt('Copy this link:', full); }); }
+            else { prompt('Copy this link:', full); }
+          });
+          side.appendChild(p1); side.appendChild(link); side.appendChild(p2); side.appendChild(pinEl); side.appendChild(copy);
+          if(info.addresses.length > 1){
+            const alt = el('div', null, 'Several networks found — if it doesn\'t connect, try another address:');
+            alt.style.marginTop = '12px'; alt.style.fontSize = '13px'; alt.style.color = 'var(--text-dim)';
+            const sel = document.createElement('select');
+            info.addresses.forEach((a, i)=>{ const o = document.createElement('option'); o.value = i; o.textContent = a; sel.appendChild(o); });
+            sel.value = idx;
+            sel.addEventListener('change', ()=>{ idx = Number(sel.value); draw(); });
+            side.appendChild(alt); side.appendChild(sel);
+          }
+        }
+        draw();
+        const steps = document.createElement('ol');
+        steps.className = 'phone-steps';
+        ['Your phone and this computer must be on the <strong>same Wi-Fi</strong> (not mobile data, and not a "guest" network).',
+         'If nothing opens, allow <strong>Node.js</strong> through the firewall when Windows/Mac asks — or allow port ' + info.port + '.',
+         'Keep the server window open while you use the phone.'].forEach(t=>{ const li = document.createElement('li'); li.innerHTML = t; steps.appendChild(li); });
+        body.appendChild(steps);
+      }
+      document.getElementById('phoneBtn').addEventListener('click', ()=>{ render(); modal.classList.remove('hidden'); });
+      document.getElementById('phoneCloseBtn').addEventListener('click', ()=> modal.classList.add('hidden'));
+    })();
+
+    renderLibrary();
+    renderSlides();
+    updatePreviewBox(getPreview());
+    updateLiveBox(getLive());
+
+    window.addEventListener('storage', (e)=>{
+      if(e.key===LIVE_KEY){ updateLiveBox(getLive()); renderSlides(); }
+      if(e.key===PREVIEW_KEY){ updatePreviewBox(getPreview()); renderSlides(); }
+      if(e.key===ITEMS_KEY){ items = loadItems(); renderLibrary(); renderSlides(); }
+    });
+    // Browsers throttle/freeze background tabs, which can delay updates while
+    // this window isn't visible (e.g. someone switched to another tab or app).
+    // Catch up instantly the moment it's looked at again.
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.hidden) return;
+      items = loadItems();
+      renderLibrary();
+      renderSlides();
+      updatePreviewBox(getPreview());
+      updateLiveBox(getLive());
+    });
+  }
+})();
+
+</script>
+</body>
+</html>

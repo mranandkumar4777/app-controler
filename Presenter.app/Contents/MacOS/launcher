@@ -1,0 +1,41 @@
+#!/bin/bash
+# Presenter launcher (macOS)
+# Presenter.app sits inside your Presenter folder, next to server.js.
+# This script starts the server (if it isn't already running) and opens
+# the Control window in your default browser.
+
+set -e
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+cd "$APP_DIR"
+
+PORT="${PORT:-8787}"
+URL="http://localhost:${PORT}/"
+LOG_FILE="$APP_DIR/.presenter-server.log"
+
+notify() {
+  osascript -e "display alert \"$1\" message \"$2\" as critical" >/dev/null 2>&1 || true
+}
+
+if ! command -v node >/dev/null 2>&1; then
+  notify "Node.js not found" "Presenter needs Node.js to run. Install it (free) from nodejs.org, then open Presenter again."
+  exit 1
+fi
+
+if [ ! -f "$APP_DIR/server.js" ]; then
+  notify "Files missing" "server.js wasn't found next to Presenter.app. Keep Presenter.app in the same folder as server.js, presenter.html, and remote.html."
+  exit 1
+fi
+
+# If something is already answering on this port, assume the server is
+# already running (from a previous launch) and just open the browser.
+if ! curl -s -o /dev/null -m 1 "$URL"; then
+  nohup node "$APP_DIR/server.js" > "$LOG_FILE" 2>&1 &
+  disown || true
+  # Give it a moment to boot before opening the browser.
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    sleep 0.5
+    if curl -s -o /dev/null -m 1 "$URL"; then break; fi
+  done
+fi
+
+open "$URL"
